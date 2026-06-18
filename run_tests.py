@@ -61,9 +61,8 @@ def get_report_filename_from_pytest_ini() -> str:
             print(f"Warning: Failed to parse {PYTEST_INI} for report filename: {e}")
     return fallback_filename
 
-def main():
-    defaults = load_config()
-
+def build_parser() -> argparse.ArgumentParser:
+    """Builds the argparse parser for command-line arguments."""
     parser = argparse.ArgumentParser(
         description="momo Web Automation Testing CLI Framework"
     )
@@ -134,10 +133,13 @@ def main():
         default=["suites/"],
         help="Optional test paths or specific test cases to execute (default: suites/)"
     )
+    return parser
 
-    args = parser.parse_args()
-
-    # Determine final configurations (CLI overrides config.ini defaults)
+def resolve_configurations(args, defaults: dict) -> dict:
+    """
+    Resolves the final config parameters from command line overrides and config.ini defaults,
+    and exports variables to os.environ.
+    """
     final_headless = defaults["headless"]
     if args.headless is not None:
         final_headless = True
@@ -149,9 +151,6 @@ def main():
     # Resolve directory path
     report_dir = args.report if args.report is not None else defaults["report_path"]
     abs_report_dir = os.path.abspath(report_dir)
-    
-    # Automatically create output directory if missing
-    os.makedirs(abs_report_dir, exist_ok=True)
     
     # Extract filename from pytest.ini and combine
     report_filename = get_report_filename_from_pytest_ini()
@@ -182,6 +181,9 @@ def main():
         # Playwright Inspector requires headed browser mode to display
         os.environ["MOMO_HEADLESS"] = "false"
         final_headless = False
+    else:
+        # Clear PWDEBUG if explicitly disabled
+        os.environ.pop("PWDEBUG", None)
 
     # Base pytest arguments (overriding pytest.ini's local html path dynamically)
     pytest_args = [
@@ -207,21 +209,43 @@ def main():
             else:
                 flattened_tcs.append(item)
         os.environ["TEST_CASE_FILTER"] = ",".join(flattened_tcs)
+    else:
+        os.environ.pop("TEST_CASE_FILTER", None)
 
     # Add targeted tests / directories
     pytest_args.extend(args.test_targets)
 
+    return {
+        "headless": final_headless,
+        "log_level": final_log_level,
+        "report_dir": report_dir,
+        "report_path": final_report_path,
+        "pwdebug": final_pwdebug,
+        "trace": final_trace,
+        "pytest_args": pytest_args
+    }
+
+def main():
+    defaults = load_config()
+    parser = build_parser()
+    args = parser.parse_args()
+    
+    config = resolve_configurations(args, defaults)
+    
+    # Automatically create output directory if missing
+    os.makedirs(os.path.abspath(config["report_dir"]), exist_ok=True)
+    
     # Output run configuration overview
     print(f"Launching Momo Web Automation Framework...")
-    print(f"  Headless: {final_headless} (CLI override)" if (args.headless or args.headed) else f"  Headless: {final_headless} (default from config.ini)")
-    print(f"  Log Level: {final_log_level} (CLI override)" if args.log_level else f"  Log Level: {final_log_level} (default from config.ini)")
-    print(f"  Report Path: {final_report_path} (resolved from report_dir='{report_dir}' & pytest.ini filename='{report_filename}')")
-    print(f"  Playwright Inspector (PWDEBUG): {final_pwdebug} (CLI override)" if (args.pwdebug or args.no_pwdebug) else f"  Playwright Inspector (PWDEBUG): {final_pwdebug} (default from config.ini)")
-    print(f"  Playwright Trace: {final_trace} (CLI override)" if (args.trace or args.no_trace) else f"  Playwright Trace: {final_trace} (default from config.ini)")
-    print(f"  Command parameters: {pytest_args}\n")
+    print(f"  Headless: {config['headless']} (CLI override)" if (args.headless or args.headed) else f"  Headless: {config['headless']} (default from config.ini)")
+    print(f"  Log Level: {config['log_level']} (CLI override)" if args.log_level else f"  Log Level: {config['log_level']} (default from config.ini)")
+    print(f"  Report Path: {config['report_path']} (resolved from report_dir='{config['report_dir']}' & pytest.ini filename='{get_report_filename_from_pytest_ini()}')")
+    print(f"  Playwright Inspector (PWDEBUG): {config['pwdebug']} (CLI override)" if (args.pwdebug or args.no_pwdebug) else f"  Playwright Inspector (PWDEBUG): {config['pwdebug']} (default from config.ini)")
+    print(f"  Playwright Trace: {config['trace']} (CLI override)" if (args.trace or args.no_trace) else f"  Playwright Trace: {config['trace']} (default from config.ini)")
+    print(f"  Command parameters: {config['pytest_args']}\n")
 
     # Run pytest programmatically
-    exit_code = pytest.main(pytest_args)
+    exit_code = pytest.main(config["pytest_args"])
     sys.exit(exit_code)
 
 if __name__ == "__main__":
