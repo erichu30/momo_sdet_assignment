@@ -1,0 +1,46 @@
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+*_env/
+
+# Python Cache & Compiled Files
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# Pytest & Test Execution Cache
+.pytest_cache/
+.playwright/
+
+# Generated Test Assets, Reports, Logs
+results/
+test-results/
+playwright-report/
+logs/
+*.log
+pytest_html_report.html
+assets/
+
+# Captured Screenshots / Videos / Traces (in case generated in root)
+*.png
+*.webm
+*.zip
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# OS Metadata
+.DS_Store
+Thumbs.db
+
+# Local configuration / secrets
+.env
+local_settings.py
