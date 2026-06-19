@@ -1,8 +1,9 @@
 import os
 import time
-from playwright.sync_api import Page, Locator, expect
+from playwright.sync_api import Page, Locator, expect, TimeoutError as PlaywrightTimeoutError
 from utils.logger import logger
 from utils.runtime_config import get_runtime_config
+from utils.retry import with_retry
 
 class BasePage:
     # momo shows dynamic promotional overlays; these are the known close controls.
@@ -18,15 +19,43 @@ class BasePage:
     ]
     # How long to wait for any overlay to appear before assuming none will.
     POPUP_APPEAR_TIMEOUT = 2000
+    # Page navigation budget (ms); generous to tolerate momo + per-request
+    # interception slowness when the whole suite runs back-to-back.
+    NAVIGATION_TIMEOUT = 60000
 
     def __init__(self, page: Page):
         self.page = page
 
     def navigate_to(self, url: str):
         logger.info(f"Navigating to {url}")
-        self.page.goto(url)
-        self.page.wait_for_load_state("load")
+
+        def _go():
+            self.page.goto(url, timeout=self.NAVIGATION_TIMEOUT)
+            self.page.wait_for_load_state("load")
+
+        # Retry navigation on throttle-induced timeouts (logs retries= for observability).
+        with_retry("navigate", _go, retry_on=(PlaywrightTimeoutError,), url=url)
         self.dismiss_popups()
+
+    def block_requests(self, should_block):
+        """
+        Aborts every request whose URL matches `should_block(url) -> bool`.
+
+        Used to drop non-momo analytics/ads/tracking traffic so E2E tests focus on
+        the product flow under test. The blocklist itself lives in a shared suite
+        library; this method only owns the interception mechanism. No-op if
+        `should_block` is falsy.
+        """
+        if not should_block:
+            return
+
+        def _handler(route):
+            if should_block(route.request.url):
+                route.abort()
+            else:
+                route.continue_()
+
+        self.page.route("**/*", _handler)
 
     def dismiss_popups(self):
         """

@@ -1,0 +1,59 @@
+# Third-party host blocklist (analytics / ads / trackers / error-reporting).
+#
+# These hosts are NOT served by momo (everything momo serves lives under
+# *.momoshop.com.tw). Blocking them lets E2E tests focus on the product flow
+# under test instead of unrelated marketing/ad/analytics traffic.
+#
+# One registrable domain per line; matches the host itself and any subdomain
+# (e.g. "criteo.com" also blocks gum.criteo.com / mug.criteo.com).
+# Lines starting with "#" and inline "# ..." comments are ignored.
+# Derived from the SEARCH-000 Playwright trace; extend as new trackers appear.
+
+# --- Google: ads, analytics, tag manager ---
+doubleclick.net
+googletagmanager.com
+google.com
+google.com.tw
+
+# --- TikTok ---
+tiktok.com
+tiktokw.us
+
+# --- Microsoft Bing ads ---
+bing.com
+
+# --- Native ad networks (Taboola / Outbrain) ---
+taboola.com
+outbrain.com
+
+# --- Criteo / Teads ---
+criteo.com
+criteo.net
+teads.tv
+
+# --- Meta / Facebook ---
+facebook.com
+facebook.net
+
+# --- Appier (marketing automation) ---
+appier.net
+
+# --- Sentry (error reporting) ---
+sentry.io
+sentry-cdn.com
+
+# --- Programmatic ad exchanges / SSPs / identity sync ---
+adnxs.com
+pubmatic.com
+rubiconproject.com
+casalemedia.com
+smartadserver.com
+3lift.com
+bidswitch.net
+1rx.io
+360yield.com
+clmbtech.com
+media.net
+creativecdn.com
+rlcdn.com
+socdm.com

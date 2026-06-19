@@ -2,11 +2,11 @@
 
 This repository provides a professional-grade web automation framework skeleton built using **Python + Pytest + Playwright** targeting the search feature of the **momo shopping site** (`https://www.momoshop.com.tw/`).
 
-It incorporates the Page Object Model (POM) pattern, custom CLI options for Headless and Debug modes, Git branching strategies, and low-level **Chrome DevTools Protocol (CDP)** performance auditing.
+It incorporates the Page Object Model (POM) pattern, custom CLI options for Headless and Debug modes, Git branching strategies, structured **`[PERF]`** performance logging, **retry-with-backoff** resilience against rate-limiting, and **third-party network filtering** to keep tests focused on the search feature.
 
 ---
 
-## 🚀 1. Environment & Setup
+## 1. Environment & Setup
 
 This project is managed with **`uv`**, an extremely fast Python package and project
 manager written in Rust. Dependencies are declared in **`pyproject.toml`** and pinned
@@ -52,7 +52,7 @@ uv run pytest test/
 uv run python run_tests.py
 
 # 3. A single smoke test (fast sanity check that the whole pipeline works)
-uv run python run_tests.py -c SEARCH-000
+uv run python run_tests.py -c SEARCH-001
 ```
 
 > **Dependency management:** add/remove packages with `uv add <pkg>` / `uv remove <pkg>`
@@ -62,56 +62,33 @@ uv run python run_tests.py -c SEARCH-000
 
 ---
 
-## 📦 2. Global Configuration & CLI Interface (`run_tests.py`)
+## 2. Global Configuration & CLI Interface (`run_tests.py`)
 
 The framework relies on a global configuration file **`config.ini`** for default execution settings. You can override these defaults directly from the CLI.
 
 ### Global Configuration (`config.ini`)
-The default configuration file at the project root includes annotations and is structured as:
-```ini
-[momo_automation]
-# Run tests in headless mode (true) or headed mode (false)
-# Allowed values: true, false (default: true)
-headless = true
+The default settings inside `config.ini` control the framework's baseline behavior:
 
-# Set the test run logging level
-# Allowed values: DEBUG, INFO, WARNING, ERROR (default: INFO)
-# Note: Setting to DEBUG dynamically triggers:
-#  - Playwright action slow_mo (800ms action delay)
-#  - Video recording for all test cases (linked in the HTML report)
-log_level = INFO
-
-# Output directory for run assets (HTML report, per-case logs/traces/videos)
-# Supports relative or absolute paths (auto-resolved to absolute) and is created if missing.
-# Example: ./results
-report_dir = ./results
-
-# Enable Playwright Inspector interactive debugging GUI
-# Allowed values: true, false (default: false)
-# Note: Setting to true pauses execution at the start of tests
-pwdebug = false
-
-# Capture a Playwright execution trace (.zip) for every test case
-# Allowed values: true, false (default: true)
-trace = true
-```
+| Parameter | Default Value | Allowed Values | Description / Behavior |
+| :--- | :--- | :--- | :--- |
+| `headless` | `true` | `true`, `false` | Run tests in headless (background) or headed (visible browser) mode. |
+| `log_level` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` | Logging verbosity. Setting to `DEBUG` triggers verbose outputs, 800ms action delay (`slow_mo`), and automatic video capture for all test cases. |
+| `report_dir` | `./results` | Path string (relative/absolute) | Output directory for execution assets (HTML report, per-case logs/traces/videos). Path is auto-created if missing. |
+| `pwdebug` | `false` | `true`, `false` | Enable Playwright Inspector interactive debugging GUI. Setting to `true` pauses execution at the start of tests (forces headed mode). |
+| `trace` | `true` | `true`, `false` | Capture a Playwright execution trace (`.zip`) for every test case. |
 
 ### CLI Overrides
-The `run_tests.py` wrapper accepts arguments to override the values inside `config.ini` dynamically:
-- **Browser Mode Override**:
-  - `--headless`: Forces headless execution (runs in background).
-  - `--headed`: Forces headed execution (opens a visible browser window).
-- **Log Level Override**:
-  - `--log-level <LEVEL>` (or `-l <LEVEL>`): Sets the log capturing and output level. Available levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`.
-  - *Note: Setting the log level to `DEBUG` automatically activates verbose logger outputs, slows down action execution by 800ms (`slow_mo`), and captures both execution traces and videos for all test runs.*
-- **Report Directory Override**:
-  - `--report <DIR>` (or `-r <DIR>`): Sets a custom output **directory** for the HTML report and per-case assets. The report *filename* itself comes from `pytest.ini`, so pass a directory, not a file.
-- **Playwright Inspector (PWDEBUG) Override**:
-  - `--pwdebug`: Enables Playwright Inspector GUI and pauses execution at start of tests (forces headed mode).
-  - `--no-pwdebug`: Disables Playwright Inspector GUI.
-- **Trace Override**:
-  - `--trace`: Forces Playwright execution trace capture (`.zip`) for every test case.
-  - `--no-trace`: Disables trace capture.
+The `run_tests.py` wrapper accepts arguments to override the values inside `config.ini` dynamically, filter tests by level or ID, and control debugging outputs:
+
+| CLI Options | Type / Format | Default (from `config.ini`) | Description / Override Behavior |
+| :--- | :--- | :--- | :--- |
+| `--headless`<br>`--headed` | Flag | `headless = true` | Overrides the browser mode. `--headless` runs in background; `--headed` opens a visible browser window. |
+| `--log-level <LEVEL>`<br>`-l <LEVEL>` | Choice: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `log_level = INFO` | Overrides logging level. `DEBUG` automatically activates verbose logger, slows execution by 800ms, and captures traces + videos. |
+| `--report <DIR>`<br>`-r <DIR>` | Path | `report_dir = ./results` | Overrides the output directory for reports and assets. (Report filename is configured in `pytest.ini`). |
+| `--pwdebug`<br>`--no-pwdebug` | Flag | `pwdebug = false` | `--pwdebug` enables Playwright Inspector GUI and pauses execution at start (forces headed mode). `--no-pwdebug` disables it. |
+| `--trace`<br>`--no-trace` | Flag | `trace = true` | `--trace` forces trace capture (`.zip`) for every test case; `--no-trace` disables trace capture. |
+| `--tier <TIERS>`<br>`-t <TIERS>` | Comma-separated list | None | Filter tests by tier markers: `RAT` (smoke/acceptance), `FAST` (happy path), `TOFT` (functionality), or `FET` (edge/negative paths). |
+| `--test-case <IDS>`<br>`-c <IDS>` | Range / Comma-separated list | None | Filter tests by ID, e.g. `SEARCH-001`, a range `SEARCH-{001..003}`, or custom list `SEARCH-001,SEARCH-004`. |
 
 ### CLI Examples
 All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
@@ -157,7 +134,7 @@ To debug a specific step inside your test case or Page Object:
 
 ### Test Classification & Filtering (`--tier` / `-t`)
 The framework classifies tests into distinct execution tiers to optimize build validation speed:
-- **RAT (Release Acceptance Testing)**: Smoke test verifying if the environment/site is accessible (takes ~2 seconds).
+- **RAT (Release Acceptance Testing)**: Smoke test verifying that core search works (basic keyword search returns results).
 - **FAST (Core Happy Paths)**: Essential happy path validations protecting core user experience flows.
 - **TOFT & FET (Functional Toleration & Edge Testing)**: Comprehensive coverage including filtering, sorting, autocomplete and negative edge paths.
 
@@ -202,58 +179,37 @@ uv run python run_tests.py suites/SEARCH/test_search.py::TestMomoSearch::test_ha
 uv run python run_tests.py -r ./debug_results
 ```
 
----
+### Viewing the HTML Report
+The report is written to `<report_dir>/pytest_html_report.html` (default `results/`).
 
-## 📋 3. Test Case Specifications (Framework)
-
-The test cases are located in `suites/SEARCH/test_search.py`. Below are their specifications:
-
-### Scenario 0: Release Acceptance Testing (RAT) (`test_homepage_accessibility`)
-* **Testing Level**: Release Acceptance Testing (Smoke Test)
-* **Input**: None (Navigate to homepage)
-* **Output**: Successfully loaded homepage
-* **Expected Result**:
-  - Homepage navigation returns a success status.
-  - Page is accessible and completes loading in under 3-5 seconds.
-  - Page browser title contains the keyword `"momo"`.
-
-### Scenario 1: Happy Path Search (`test_happy_path_search`)
-* **Testing Level**: System Integration / E2E UI Functional Test
-* **Input**: Valid product keyword string (e.g., `"iPhone"`)
-* **Output**: Search results page listing products relevant to the keyword
-* **Expected Result**:
-  - Page header (H1) text contains the searched keyword.
-  - Product list displays at least one product.
-  - The first few product titles are relevant to the input search term.
-
-### Scenario 2: Advanced Price Range Filtering (`test_advanced_price_range_filtering`)
-* **Testing Level**: System Integration / E2E UI Functional Test
-* **Input**: Category keyword (`"咖啡機"`) and numeric price bounds (Min: `2000`, Max: `5000`)
-* **Output**: Re-rendered product grid displaying filtered results
-* **Expected Result**:
-  - Filter is successfully submitted.
-  - Every product price extracted from the page falls within the range `[2000, 5000]`.
-
-### Scenario 3: Autocomplete Suggestions (`test_search_autocomplete_suggestions`)
-* **Testing Level**: E2E UI User Experience / Integration Test
-* **Input**: Partial keyword text (`"iPhone"`) entered into the search box
-* **Output**: Dropdown modal containing recommendation keywords
-* **Expected Result**:
-  - Autocomplete suggestion box becomes visible on input focus/type.
-  - Dropdown suggestion list is populated (count > 0).
-  - Clicking a suggestion redirects the browser and successfully loads the results page matching the chosen keyword.
-
-### Scenario 4: Negative Path - No Search Results (`test_negative_no_results`)
-* **Testing Level**: E2E UI Negative / Boundary Test
-* **Input**: Non-existent, gibberish keyword (e.g., `"xyz999abc_not_exist"`)
-* **Output**: Results page displaying empty state view
-* **Expected Result**:
-  - Page displays a "No results found" placeholder or "查無商品" indicator.
-  - Product item list count is `0`.
+> **Open it over HTTP, not by double-clicking (`file://`).** pytest-html sorts on
+> load via `history.pushState`, which throws a `SecurityError` over `file://` when the
+> project path contains **non-ASCII characters** — leaving the results table empty.
+> Serve it instead:
+>
+> ```bash
+> uv run python -m http.server -d results 8000
+> # then open http://localhost:8000/pytest_html_report.html
+> ```
+>
+> (Or keep the checkout under an ASCII-only path, which avoids the issue entirely.)
 
 ---
 
-## 🔍 4. Playwright Trace Viewer (`trace.zip`)
+## 3. Test Case Specifications (Framework)
+
+The test cases are located in [test_search.py](file:///Users/huchiawei/Downloads/面試/momo/Sr_Web_Testing_Assignment/suites/SEARCH/test_search.py). Below are their specifications:
+
+| Scenario | Test ID | Method Name | Testing Level (Tier) | Inputs & Outputs | Expected Results |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Scenario 1**: Happy Path Search | `SEARCH-001` | `test_happy_path_search` | RAT (Smoke Test) | **Input**: Valid keyword (e.g. `"iPhone"`)<br>**Output**: Search results page | <ul><li>H1 header text contains the searched keyword.</li><li>Product list contains at least one product.</li><li>At least 4 of the first 5 product titles are relevant to the keyword.</li></ul> |
+| **Scenario 2**: Advanced Price Range Filtering | `SEARCH-002` | `test_advanced_price_range_filtering` | TOFT (Functionality & Toleration) | **Input**: Keyword (`"咖啡機"`), Price bounds (`[2000, 5000]`)<br>**Output**: Filtered product grid | <ul><li>Filter successfully submitted.</li><li>Every extracted product price falls within range `[2000, 5000]`.</li></ul> |
+| **Scenario 3**: Autocomplete Suggestions | `SEARCH-003` | `test_search_autocomplete_suggestions` | FAST (Core Happy Path) | **Input**: Partial keyword (e.g. `"iPhone"`)<br>**Output**: Autocomplete suggestion dropdown | <ul><li>Suggestions dropdown visible on focus/input.</li><li>Dropdown list is populated (count > 0).</li><li>Clicking suggestion redirects and loads results matching the selected keyword.</li></ul> |
+| **Scenario 4**: Negative Path - No Search Results | `SEARCH-004` | `test_negative_no_results` | FET (Functional Edge Test) | **Input**: Gibberish keyword (e.g. `"xyz999abc_not_exist"`)<br>**Output**: Empty state view | <ul><li>Page displays a "No results found" placeholder or "查無商品" indicator.</li><li>Product list count is `0`.</li></ul> |
+
+---
+
+## 4. Playwright Trace Viewer (`trace.zip`)
 
 Playwright Trace Viewer is a graphical user interface tool that allows you to post-mortem explore recorded test traces. It displays a visual timeline, step-by-step DOM snapshots, network requests, console logs, and links execution states directly to source code.
 
@@ -282,22 +238,37 @@ uv run playwright show-trace results/SEARCH/SEARCH-001/trace.zip
 
 ---
 
-## 💎 5. The 3 momo Values
+## 5. Resilience & Observability
 
-This framework has been architected to adhere to the core SDET dimensions valued by the momo team:
+### Third-Party Network Filtering
+momo loads heavy ad/analytics/tracking traffic (Google, Criteo, TikTok, Taboola, Sentry, …) that is irrelevant to the search feature under test. The framework blocks these at the network layer so each test focuses on momo's own flow.
+- **Blocklist** (shared, reusable across suites): `suites/common/blocked_hosts.txt` — one registrable domain per line; subdomains match automatically (e.g. `criteo.com` also blocks `gum.criteo.com`).
+- **Mechanism**: `BasePage.block_requests()` aborts matching requests; the SEARCH suite wires it in via an autouse fixture in `suites/SEARCH/conftest.py`.
+- Each test logs what was applied: `Applied 3rd-party networking filter: blocking N hosts (refer to suites/common/blocked_hosts.txt)`.
+- **Extend** it by adding a domain to the file — no code change.
 
-1. **Test Coverage**: Focuses on high-value business flows (Happy path searching, autocomplete user experience, filter logic accuracy, and system failure handling/boundaries) rather than a high volume of trivial tests.
-2. **Stability (Anti-Flakiness)**:
-   - Uses Playwright's native **Auto-waiting engine** (clicks, fills, and waits for visible state automatically).
-   - Integrates a global `dismiss_popups()` hook in `BasePage` to automatically handle and dismiss momo's promotional overlays which commonly block UI element interactions.
-   - Captures automated failure screenshots and traces in the `results/` folder.
-3. **Maintainability**:
-   - Implements a strict **Page Object Model (POM)** separation to keep test scripts decoupled from underlying HTML selectors.
-   - Centralized logging configurations and standard directory structures.
+### Performance Instrumentation (`[PERF]` logs)
+Key operations (navigate, search, price filter, autocomplete) emit a greppable, machine-parseable `[PERF]` line:
+```
+[PERF] op=search duration_ms=7873 retries=0 keyword=iPhone
+```
+`op` = operation, `duration_ms` = latency, `retries` = retries needed (see below). Build a performance matrix by grepping the per-case logs:
+```bash
+grep -h "\[PERF\]" results/SEARCH/*/test.log
+```
+
+### Retry with Backoff (throttling resilience)
+momo rate-limits repeated automated traffic, which can intermittently time out navigation/search/filter actions. These operations are wrapped with a shared retry-with-backoff helper (`utils/retry.py`):
+- Retries on Playwright `TimeoutError` (and, for the price filter, a dropped-input `AssertionError`) using exponential backoff.
+- Each retry logs a `[RETRY]` warning; the operation's `[PERF]` line then carries `retries=N`.
+- **Observe degradation:** `retries=0` is healthy; `retries>0` means the op only succeeded after retrying (slower). Grep for it:
+```bash
+grep -hE "\[RETRY\]|retries=[1-9]" results/SEARCH/*/test.log
+```
 
 ---
 
-## 🔱 6. Git Branching & Development Workflow
+## 6. Git Branching & Development Workflow
 
 To ensure high codebase maintainability and clean history:
 

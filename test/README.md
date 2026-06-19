@@ -1,23 +1,26 @@
-# 🛠️ 框架自我測試說明文件 (Framework Self-Testing)
+# 框架自我測試說明文件 (Framework Self-Testing)
 
 本目錄 (`test/`) 專門存放**測試此自動化框架本身**的單元測試 (Unit Tests) 與整合測試 (Integration Tests)，主要驗證 CLI 執行器、設定檔讀取器、測試案例 ID 解析器與環境變數控制項目的正確性，以確保測試工具本身的穩定與健全，不影響主要 E2E 測試流程。
 
 ---
 
-## 📂 測試目錄結構
+## 測試目錄結構
 
 ```text
 test/
 ├── README.md         # 本說明文件
-├── test_cli.py       # 測試 CLI 參數解析、覆蓋優先權、連鎖效能與環境變數設定
-├── test_config.py         # 測試 config.ini 與 pytest.ini 的載入、解構與預設 fallback 機制
-├── test_helpers.py        # 測試 utils/test_case_parser.py 的測試案例 ID (例如 SEARCH-001) 與範圍解析器
-└── test_runtime_config.py # 測試 utils/runtime_config.py 的環境變數解析,以及與 run_tests.py 的 producer/consumer 一致性
+├── test_cli.py              # 測試 CLI 參數解析、覆蓋優先權、連鎖效能與環境變數設定
+├── test_config.py           # 測試 config.ini 與 pytest.ini 的載入、解構與預設 fallback 機制
+├── test_helpers.py          # 測試 utils/test_case_parser.py 的測試案例 ID (例如 SEARCH-001) 與範圍解析器
+├── test_runtime_config.py   # 測試 utils/runtime_config.py 的環境變數解析,以及與 run_tests.py 的 producer/consumer 一致性
+├── test_network_blocklist.py # 測試 suites/common 第三方封鎖清單的載入與 host 比對 (含子網域)
+├── test_perf.py             # 測試 utils/perf.py 的 [PERF] 計時與輸出格式
+└── test_retry.py            # 測試 utils/retry.py 的 backoff 重試、retries 計數與例外傳播
 ```
 
 ---
 
-## ⚙️ 重構設計與技術亮點
+## 重構設計與技術亮點
 
 ### 1. `run_tests.py` 可測試性重構 (Testability Refactoring)
 * **問題**：原本的 `run_tests.py` 的解析與環境設定代碼全部寫在 `main()` 函式內，且尾端直接呼叫 `pytest.main()` 與 `sys.exit()`。這導致在撰寫單元測試時，呼叫該邏輯會直接導致測試行程結束或觸發真實 Pytest 執行。
@@ -52,7 +55,7 @@ test/
 
 ---
 
-## 🚀 執行自我測試
+## 執行自我測試
 
 由於測試模組需要引用根目錄下的 `run_tests.py` 與 `suites`，執行測試時必須將目前工作目錄加入 Python 搜尋路徑 (`PYTHONPATH`)。
 
