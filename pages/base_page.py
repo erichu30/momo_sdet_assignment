@@ -5,6 +5,20 @@ from utils.logger import logger
 from utils.runtime_config import get_runtime_config
 
 class BasePage:
+    # momo shows dynamic promotional overlays; these are the known close controls.
+    POPUP_CLOSE_SELECTORS = [
+        "#momoPopupClose",
+        "#moPromoClose",
+        "a.close",
+        "button.close",
+        "div.closeBtn",
+        "#closeBtn",
+        ".pop-close",
+        "#close_pop",
+    ]
+    # How long to wait for any overlay to appear before assuming none will.
+    POPUP_APPEAR_TIMEOUT = 2000
+
     def __init__(self, page: Page):
         self.page = page
 
@@ -20,30 +34,27 @@ class BasePage:
         Since momo displays dynamic popups, this method tries multiple selectors.
         If no popups are found, it skips gracefully without throwing.
         """
-        popup_close_selectors = [
-            "#momoPopupClose", 
-            "#moPromoClose", 
-            "a.close", 
-            "button.close", 
-            "div.closeBtn",
-            "#closeBtn",
-            ".pop-close",
-            "#close_pop"
-        ]
-        
-        # Give a split second for popups to render
-        self.page.wait_for_timeout(1000)
-        
-        for selector in popup_close_selectors:
+        # Wait once (web-first) for any candidate overlay to appear; bail fast if none do.
+        combined = self.page.locator(", ".join(self.POPUP_CLOSE_SELECTORS)).first
+        try:
+            combined.wait_for(state="visible", timeout=self.POPUP_APPEAR_TIMEOUT)
+        except Exception:
+            logger.debug("No overlay popup detected; continuing.")
+            return
+
+        # Dismiss every currently-visible overlay, waiting for each to detach
+        # instead of sleeping a fixed amount of time.
+        for selector in self.POPUP_CLOSE_SELECTORS:
+            locator = self.page.locator(selector).first
             try:
-                locator = self.page.locator(selector).first
-                if locator.is_visible(timeout=500):
-                    logger.info(f"Detected overlay popup: Clicking {selector} to dismiss.")
-                    locator.click()
-                    self.page.wait_for_timeout(500)
+                if not locator.is_visible():
+                    continue
+                logger.info(f"Detected overlay popup: dismissing {selector}.")
+                locator.click()
+                locator.wait_for(state="hidden", timeout=3000)
             except Exception as e:
                 # We want popup dismissal to be non-blocking
-                logger.debug(f"Popup check failed for selector {selector}: {str(e)}")
+                logger.debug(f"Popup dismissal skipped for selector {selector}: {e}")
 
     def click_element(self, selector: str, name: str = "element"):
         logger.info(f"Clicking on {name} ({selector})")
