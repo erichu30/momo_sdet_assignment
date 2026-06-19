@@ -15,8 +15,7 @@ class HomePage(BasePage):
         """
         Navigates to the momo homepage.
         """
-        # TODO: Implement navigation
-        pass
+        self.navigate_to(self.url)
 
     def search_for(self, keyword: str):
         """

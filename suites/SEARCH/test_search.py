@@ -1,6 +1,12 @@
+import time
+
 import pytest
 from pages.home_page import HomePage
 from pages.search_results_page import SearchResultsPage
+
+# Smoke-level budget for homepage accessibility (spec: "under 3-5 seconds").
+MAX_HOMEPAGE_LOAD_SECONDS = 5.0
+
 
 class TestMomoSearch:
 
@@ -9,7 +15,7 @@ class TestMomoSearch:
     def test_homepage_accessibility(self, home_page: HomePage):
         """
         Scenario 0: Release Acceptance Testing (RAT)
-        
+
         [Specifications]
         - ID: SEARCH-000
         - Input: None (Navigate to homepage)
@@ -18,8 +24,15 @@ class TestMomoSearch:
         - Expected Result: Homepage is accessible, page loads successfully in under 3-5 seconds,
                            and the browser title contains "momo".
         """
-        # TODO: Implement Scenario 0 (RAT)
-        pass
+        start = time.time()
+        home_page.navigate()
+        load_seconds = time.time() - start
+
+        title = home_page.page.title()
+        assert "momo" in title.lower(), \
+            f"Homepage title should contain 'momo', got: {title!r}"
+        assert load_seconds < MAX_HOMEPAGE_LOAD_SECONDS, \
+            f"Homepage should load within {MAX_HOMEPAGE_LOAD_SECONDS}s, took {load_seconds:.2f}s"
 
     @pytest.mark.fast
     @pytest.mark.test_id("SEARCH-001")
