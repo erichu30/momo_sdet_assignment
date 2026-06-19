@@ -6,6 +6,7 @@ in the conftest namespace, keeping conftest itself thin. All runtime decisions a
 driven by the typed RuntimeConfig snapshot rather than raw env lookups.
 """
 import os
+import base64
 import time
 import shutil
 import logging
@@ -133,11 +134,12 @@ def pytest_runtest_makereport(item, call):
         screenshot_name = "failure.png"
         screenshot_path = os.path.join(test_case_dir, screenshot_name)
         try:
-            page.screenshot(path=screenshot_path)
-            # Path relative to the report HTML at results/pytest_html_report.html
-            relative_path = f"{test_suite}/{test_case_id}/{screenshot_name}"
-            extra.append(extras.image(relative_path, name="Failure Screenshot"))
-            logger.error(f"[{test_case_id}] Test FAILED! Screenshot linked in report: {relative_path}")
+            # Capture once: save to the case folder AND embed as base64 so the
+            # self-contained HTML report has no external file dependency.
+            screenshot_bytes = page.screenshot(path=screenshot_path)
+            encoded = base64.b64encode(screenshot_bytes).decode("ascii")
+            extra.append(extras.image(encoded, name="Failure Screenshot"))
+            logger.error(f"[{test_case_id}] Test FAILED! Screenshot embedded in report and saved: {screenshot_path}")
         except Exception as e:
             logger.error(f"Failed to take screenshot on test failure: {e}")
 
