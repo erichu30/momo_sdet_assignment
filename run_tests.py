@@ -19,7 +19,7 @@ def load_config() -> dict:
     defaults = {
         "headless": True,
         "log_level": "INFO",
-        "report_path": "./results",
+        "report_dir": "./results",
         "pwdebug": False,
         "trace": True
     }
@@ -33,8 +33,8 @@ def load_config() -> dict:
                     defaults["headless"] = sec.getboolean("headless")
                 if "log_level" in sec:
                     defaults["log_level"] = sec.get("log_level").upper()
-                if "report_path" in sec:
-                    defaults["report_path"] = sec.get("report_path")
+                if "report_dir" in sec:
+                    defaults["report_dir"] = sec.get("report_dir")
                 if "pwdebug" in sec:
                     defaults["pwdebug"] = sec.getboolean("pwdebug")
                 if "trace" in sec:
@@ -84,7 +84,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--log-level", "-l",
-        choices=["DEBUG", "INFO", "WARN", "ERROR"],
+        choices=["DEBUG", "INFO", "WARNING", "ERROR"],
         default=None,
         help="Set execution log level (overrides config.ini default)"
     )
@@ -151,9 +151,9 @@ def resolve_configurations(args, defaults: dict) -> dict:
     final_log_level = args.log_level if args.log_level is not None else defaults["log_level"]
     
     # Resolve directory path
-    report_dir = args.report if args.report is not None else defaults["report_path"]
+    report_dir = args.report if args.report is not None else defaults["report_dir"]
     abs_report_dir = os.path.abspath(report_dir)
-    
+
     # Extract filename from pytest.ini and combine
     report_filename = get_report_filename_from_pytest_ini()
     final_report_path = os.path.join(abs_report_dir, report_filename)
@@ -222,6 +222,7 @@ def resolve_configurations(args, defaults: dict) -> dict:
         "log_level": final_log_level,
         "report_dir": report_dir,
         "report_path": final_report_path,
+        "report_filename": report_filename,
         "pwdebug": final_pwdebug,
         "trace": final_trace,
         "pytest_args": pytest_args
@@ -241,7 +242,7 @@ def main():
     print(f"Launching Momo Web Automation Framework...")
     print(f"  Headless: {config['headless']} (CLI override)" if (args.headless or args.headed) else f"  Headless: {config['headless']} (default from config.ini)")
     print(f"  Log Level: {config['log_level']} (CLI override)" if args.log_level else f"  Log Level: {config['log_level']} (default from config.ini)")
-    print(f"  Report Path: {config['report_path']} (resolved from report_dir='{config['report_dir']}' & pytest.ini filename='{get_report_filename_from_pytest_ini()}')")
+    print(f"  Report Path: {config['report_path']} (resolved from report_dir='{config['report_dir']}' & pytest.ini filename='{config['report_filename']}')")
     print(f"  Playwright Inspector (PWDEBUG): {config['pwdebug']} (CLI override)" if (args.pwdebug or args.no_pwdebug) else f"  Playwright Inspector (PWDEBUG): {config['pwdebug']} (default from config.ini)")
     print(f"  Playwright Trace: {config['trace']} (CLI override)" if (args.trace or args.no_trace) else f"  Playwright Trace: {config['trace']} (default from config.ini)")
     print(f"  Command parameters: {config['pytest_args']}\n")

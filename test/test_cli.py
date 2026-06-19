@@ -10,7 +10,7 @@ class TestCLIAndOverrides(unittest.TestCase):
         self.default_configs = {
             "headless": True,
             "log_level": "INFO",
-            "report_path": "./results",
+            "report_dir": "./results",
             "pwdebug": False,
             "trace": True
         }

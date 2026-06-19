@@ -59,7 +59,7 @@ class TestRuntimeConfig(unittest.TestCase):
         defaults = {
             "headless": True,
             "log_level": "INFO",
-            "report_path": "./results",
+            "report_dir": "./results",
             "pwdebug": False,
             "trace": True,
         }

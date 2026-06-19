@@ -13,7 +13,7 @@ class TestConfigLoader(unittest.TestCase):
         
         self.assertTrue(configs["headless"])
         self.assertEqual(configs["log_level"], "INFO")
-        self.assertEqual(configs["report_path"], "./results")
+        self.assertEqual(configs["report_dir"], "./results")
         self.assertTrue(configs["trace"])
         self.assertFalse(configs["pwdebug"])
 
@@ -22,7 +22,7 @@ class TestConfigLoader(unittest.TestCase):
 [momo_automation]
 headless = false
 log_level = DEBUG
-report_path = ./custom_results
+report_dir = ./custom_results
 pwdebug = true
 trace = false
 """)
@@ -30,10 +30,10 @@ trace = false
         """Test load_config when config.ini exists - should correctly parse configuration settings."""
         mock_exists.return_value = True
         configs = load_config()
-        
+
         self.assertFalse(configs["headless"])
         self.assertEqual(configs["log_level"], "DEBUG")
-        self.assertEqual(configs["report_path"], "./custom_results")
+        self.assertEqual(configs["report_dir"], "./custom_results")
         self.assertFalse(configs["trace"])
         self.assertTrue(configs["pwdebug"])
 
