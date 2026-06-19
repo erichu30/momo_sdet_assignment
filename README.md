@@ -89,6 +89,7 @@ The `run_tests.py` wrapper accepts arguments to override the values inside `conf
 | `--trace`<br>`--no-trace` | Flag | `trace = true` | `--trace` forces trace capture (`.zip`) for every test case; `--no-trace` disables trace capture. |
 | `--tier <TIERS>`<br>`-t <TIERS>` | Comma-separated list | None | Filter tests by tier markers: `RAT` (smoke/acceptance), `FAST` (happy path), `TOFT` (functionality), or `FET` (edge/negative paths). |
 | `--test-case <IDS>`<br>`-c <IDS>` | Range / Comma-separated list | None | Filter tests by ID, e.g. `SEARCH-001`, a range `SEARCH-{001..003}`, or custom list `SEARCH-001,SEARCH-004`. |
+| `--suite <NAMES>` | Comma-separated list | None | Run all test cases under the named suite(s), e.g. `SEARCH` -> `suites/SEARCH/`. Case-insensitive. Composes with `--tier` / `--test-case` (which filter within the selected suite). Errors and lists available suites if a name is unknown. |
 
 ### CLI Examples
 All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
@@ -167,6 +168,19 @@ uv run python run_tests.py -c "SEARCH-{001..003}"
 
 # Run a custom comma-separated list of test cases
 uv run python run_tests.py -c SEARCH-001,SEARCH-004
+```
+
+### Suite Filtering (`--suite`)
+Run every test case under a whole suite by name (case-insensitive). Composes with `--tier` / `--test-case`.
+```bash
+# Run all cases in the SEARCH suite
+uv run python run_tests.py --suite SEARCH
+
+# Run only the RAT-tier case within the SEARCH suite
+uv run python run_tests.py --suite SEARCH --tier rat
+
+# Multiple suites (comma-separated)
+uv run python run_tests.py --suite SEARCH,CART
 ```
 
 ### Custom Test Targeting & Reports
