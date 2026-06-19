@@ -28,6 +28,26 @@ class BasePage:
         self.page.wait_for_load_state("load")
         self.dismiss_popups()
 
+    def block_requests(self, should_block):
+        """
+        Aborts every request whose URL matches `should_block(url) -> bool`.
+
+        Used to drop non-momo analytics/ads/tracking traffic so E2E tests focus on
+        the product flow under test. The blocklist itself lives in a shared suite
+        library; this method only owns the interception mechanism. No-op if
+        `should_block` is falsy.
+        """
+        if not should_block:
+            return
+
+        def _handler(route):
+            if should_block(route.request.url):
+                route.abort()
+            else:
+                route.continue_()
+
+        self.page.route("**/*", _handler)
+
     def dismiss_popups(self):
         """
         Attempts to find and close typical momo promotional overlay popups.
