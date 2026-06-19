@@ -2,11 +2,11 @@
 
 This repository provides a professional-grade web automation framework skeleton built using **Python + Pytest + Playwright** targeting the search feature of the **momo shopping site** (`https://www.momoshop.com.tw/`).
 
-It incorporates the Page Object Model (POM) pattern, custom CLI options for Headless and Debug modes, Git branching strategies, and low-level **Chrome DevTools Protocol (CDP)** performance auditing.
+It incorporates the Page Object Model (POM) pattern, custom CLI options for Headless and Debug modes, Git branching strategies, structured **`[PERF]`** performance logging, **retry-with-backoff** resilience against rate-limiting, and **third-party network filtering** to keep tests focused on the search feature.
 
 ---
 
-## 🚀 1. Environment & Setup
+## 1. Environment & Setup
 
 This project is managed with **`uv`**, an extremely fast Python package and project
 manager written in Rust. Dependencies are declared in **`pyproject.toml`** and pinned
@@ -62,7 +62,7 @@ uv run python run_tests.py -c SEARCH-000
 
 ---
 
-## 📦 2. Global Configuration & CLI Interface (`run_tests.py`)
+## 2. Global Configuration & CLI Interface (`run_tests.py`)
 
 The framework relies on a global configuration file **`config.ini`** for default execution settings. You can override these defaults directly from the CLI.
 
@@ -182,7 +182,7 @@ uv run python run_tests.py -r ./debug_results
 ### Viewing the HTML Report
 The report is written to `<report_dir>/pytest_html_report.html` (default `results/`).
 
-> ⚠️ **Open it over HTTP, not by double-clicking (`file://`).** pytest-html sorts on
+> **Open it over HTTP, not by double-clicking (`file://`).** pytest-html sorts on
 > load via `history.pushState`, which throws a `SecurityError` over `file://` when the
 > project path contains **non-ASCII characters** — leaving the results table empty.
 > Serve it instead:
@@ -196,7 +196,7 @@ The report is written to `<report_dir>/pytest_html_report.html` (default `result
 
 ---
 
-## 📋 3. Test Case Specifications (Framework)
+## 3. Test Case Specifications (Framework)
 
 The test cases are located in [test_search.py](file:///Users/huchiawei/Downloads/面試/momo/Sr_Web_Testing_Assignment/suites/SEARCH/test_search.py). Below are their specifications:
 
@@ -210,7 +210,7 @@ The test cases are located in [test_search.py](file:///Users/huchiawei/Downloads
 
 ---
 
-## 🔍 4. Playwright Trace Viewer (`trace.zip`)
+## 4. Playwright Trace Viewer (`trace.zip`)
 
 Playwright Trace Viewer is a graphical user interface tool that allows you to post-mortem explore recorded test traces. It displays a visual timeline, step-by-step DOM snapshots, network requests, console logs, and links execution states directly to source code.
 
@@ -239,22 +239,37 @@ uv run playwright show-trace results/SEARCH/SEARCH-001/trace.zip
 
 ---
 
-## 💎 5. The 3 momo Values
+## 5. Resilience & Observability
 
-This framework has been architected to adhere to the core SDET dimensions valued by the momo team:
+### Third-Party Network Filtering
+momo loads heavy ad/analytics/tracking traffic (Google, Criteo, TikTok, Taboola, Sentry, …) that is irrelevant to the search feature under test. The framework blocks these at the network layer so each test focuses on momo's own flow.
+- **Blocklist** (shared, reusable across suites): `suites/common/blocked_hosts.txt` — one registrable domain per line; subdomains match automatically (e.g. `criteo.com` also blocks `gum.criteo.com`).
+- **Mechanism**: `BasePage.block_requests()` aborts matching requests; the SEARCH suite wires it in via an autouse fixture in `suites/SEARCH/conftest.py`.
+- Each test logs what was applied: `Applied 3rd-party networking filter: blocking N hosts (refer to suites/common/blocked_hosts.txt)`.
+- **Extend** it by adding a domain to the file — no code change.
 
-1. **Test Coverage**: Focuses on high-value business flows (Happy path searching, autocomplete user experience, filter logic accuracy, and system failure handling/boundaries) rather than a high volume of trivial tests.
-2. **Stability (Anti-Flakiness)**:
-   - Uses Playwright's native **Auto-waiting engine** (clicks, fills, and waits for visible state automatically).
-   - Integrates a global `dismiss_popups()` hook in `BasePage` to automatically handle and dismiss momo's promotional overlays which commonly block UI element interactions.
-   - Captures automated failure screenshots and traces in the `results/` folder.
-3. **Maintainability**:
-   - Implements a strict **Page Object Model (POM)** separation to keep test scripts decoupled from underlying HTML selectors.
-   - Centralized logging configurations and standard directory structures.
+### Performance Instrumentation (`[PERF]` logs)
+Key operations (navigate, search, price filter, autocomplete) emit a greppable, machine-parseable `[PERF]` line:
+```
+[PERF] op=search duration_ms=7873 retries=0 keyword=iPhone
+```
+`op` = operation, `duration_ms` = latency, `retries` = retries needed (see below). Build a performance matrix by grepping the per-case logs:
+```bash
+grep -h "\[PERF\]" results/SEARCH/*/test.log
+```
+
+### Retry with Backoff (throttling resilience)
+momo rate-limits repeated automated traffic, which can intermittently time out navigation/search/filter actions. These operations are wrapped with a shared retry-with-backoff helper (`utils/retry.py`):
+- Retries on Playwright `TimeoutError` (and, for the price filter, a dropped-input `AssertionError`) using exponential backoff.
+- Each retry logs a `[RETRY]` warning; the operation's `[PERF]` line then carries `retries=N`.
+- **Observe degradation:** `retries=0` is healthy; `retries>0` means the op only succeeded after retrying (slower). Grep for it:
+```bash
+grep -hE "\[RETRY\]|retries=[1-9]" results/SEARCH/*/test.log
+```
 
 ---
 
-## 🔱 6. Git Branching & Development Workflow
+## 6. Git Branching & Development Workflow
 
 To ensure high codebase maintainability and clean history:
 
