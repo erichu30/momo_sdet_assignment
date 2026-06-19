@@ -1,6 +1,8 @@
+import os
 import time
 from playwright.sync_api import Page, Locator, expect
 from utils.logger import logger
+from utils.runtime_config import get_runtime_config
 
 class BasePage:
     def __init__(self, page: Page):
@@ -60,8 +62,12 @@ class BasePage:
         locator.wait_for(state="visible", timeout=10000)
         return locator.inner_text().strip()
 
-    def take_screenshot(self, name: str):
-        path = f"test-results/{name}_{int(time.time())}.png"
+    def take_screenshot(self, name: str) -> str:
+        # Keep manual screenshots under the same report directory as all other
+        # run assets (resolved from MOMO_REPORT_DIR), and ensure it exists.
+        screenshot_dir = os.path.join(get_runtime_config().report_dir, "screenshots")
+        os.makedirs(screenshot_dir, exist_ok=True)
+        path = os.path.join(screenshot_dir, f"{name}_{int(time.time())}.png")
         self.page.screenshot(path=path)
         logger.info(f"Saved screenshot to {path}")
         return path
