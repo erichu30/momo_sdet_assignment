@@ -19,10 +19,11 @@ class HomePage(BasePage):
 
     def search_for(self, keyword: str):
         """
-        Fills keyword into search bar and clicks search.
+        Fills keyword into search bar and clicks search, landing on the results page.
         """
-        # TODO: Implement search execution
-        pass
+        self.fill_input(self.SEARCH_INPUT, keyword, name="search box")
+        self.click_element(self.SEARCH_BUTTON, name="search button")
+        self.page.wait_for_load_state("load")
 
     def type_keyword_for_suggestions(self, keyword: str):
         """

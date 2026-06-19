@@ -7,6 +7,10 @@ from pages.search_results_page import SearchResultsPage
 # Smoke-level budget for homepage accessibility (spec: "under 3-5 seconds").
 MAX_HOMEPAGE_LOAD_SECONDS = 5.0
 
+# Of the first 5 results, how many must mention the keyword to count as "relevant".
+# Tolerant of the odd sponsored/cross-sell slot while still proving search relevance.
+MIN_RELEVANT_OF_FIRST_FIVE = 4
+
 
 class TestMomoSearch:
 
@@ -47,8 +51,21 @@ class TestMomoSearch:
         - Testing Level: Core UX Happy Path Testing (FAST)
         - Expected Result: Search header reflects keyword, product count > 0, first 5 product titles are relevant.
         """
-        # TODO: Implement Scenario 1
-        pass
+        keyword = "iPhone"
+        home_page.navigate()
+        home_page.search_for(keyword)
+
+        header = search_results_page.get_search_header_text()
+        assert keyword.lower() in header.lower(), \
+            f"Search header should reflect '{keyword}', got: {header!r}"
+
+        titles = search_results_page.get_product_titles()
+        assert len(titles) > 0, "Search should return at least one product"
+
+        first_five = titles[:5]
+        relevant = [t for t in first_five if keyword.lower() in t.lower()]
+        assert len(relevant) >= MIN_RELEVANT_OF_FIRST_FIVE, \
+            f"Expected >= {MIN_RELEVANT_OF_FIRST_FIVE} of first 5 titles to mention '{keyword}', got: {first_five}"
 
     @pytest.mark.toft
     @pytest.mark.test_id("SEARCH-002")

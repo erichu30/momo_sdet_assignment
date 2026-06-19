@@ -3,7 +3,7 @@ from pages.base_page import BasePage
 class SearchResultsPage(BasePage):
     # Selectors
     HEADER_TITLE = "h1"
-    PRODUCT_TITLES = "div.goodsUrl h3, h3"
+    PRODUCT_TITLES = "h3.prdName"
     PRODUCT_PRICES = "span.price"
     SORT_PRICE_TAB = "li.priceHeight"
     PRICE_MIN_INPUT = "input#priceS"
@@ -15,15 +15,15 @@ class SearchResultsPage(BasePage):
         """
         Returns the main header/title text of the search results page.
         """
-        # TODO: Implement text extraction
-        return ""
+        return self.get_text(self.HEADER_TITLE)
 
     def get_product_titles(self) -> list[str]:
         """
         Extracts titles of all visible product cards in the results page.
         """
-        # TODO: Implement products list titles extraction
-        return []
+        titles = self.page.locator(self.PRODUCT_TITLES)
+        titles.first.wait_for(state="visible", timeout=10000)
+        return [t.strip() for t in titles.all_inner_texts()]
 
     def get_product_prices(self) -> list[int]:
         """
