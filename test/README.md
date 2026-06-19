@@ -10,8 +10,9 @@
 test/
 ├── README.md         # 本說明文件
 ├── test_cli.py       # 測試 CLI 參數解析、覆蓋優先權、連鎖效能與環境變數設定
-├── test_config.py    # 測試 config.ini 與 pytest.ini 的載入、解構與預設 fallback 機制
-└── test_helpers.py   # 測試 conftest.py 中的測試案例 ID (例如 SEARCH-001) 與範圍解析器
+├── test_config.py         # 測試 config.ini 與 pytest.ini 的載入、解構與預設 fallback 機制
+├── test_helpers.py        # 測試 utils/test_case_parser.py 的測試案例 ID (例如 SEARCH-001) 與範圍解析器
+└── test_runtime_config.py # 測試 utils/runtime_config.py 的環境變數解析,以及與 run_tests.py 的 producer/consumer 一致性
 ```
 
 ---
