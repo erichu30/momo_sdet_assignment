@@ -63,6 +63,33 @@ def get_report_filename_from_pytest_ini() -> str:
             print(f"Warning: Failed to parse {PYTEST_INI} for report filename: {e}")
     return fallback_filename
 
+def resolve_suite_targets(suite_value: str, suites_dir: str = "suites") -> list:
+    """
+    Maps comma-separated test suite names to their directories under suites_dir
+    (case-insensitive). Raises ValueError listing the available suites if a name is
+    unknown. The shared 'common' library and cache/dot dirs are not test suites.
+    """
+    available = sorted(
+        d for d in os.listdir(suites_dir)
+        if os.path.isdir(os.path.join(suites_dir, d))
+        and d not in ("common", "__pycache__")
+        and not d.startswith(".")
+    )
+    lookup = {name.lower(): name for name in available}
+
+    targets = []
+    for raw in suite_value.split(","):
+        name = raw.strip()
+        if not name:
+            continue
+        actual = lookup.get(name.lower())
+        if actual is None:
+            raise ValueError(
+                f"Unknown test suite '{name}'. Available suites: {', '.join(available) or '(none)'}"
+            )
+        targets.append(os.path.join(suites_dir, actual))
+    return targets
+
 def build_parser() -> argparse.ArgumentParser:
     """Builds the argparse parser for command-line arguments."""
     parser = argparse.ArgumentParser(
@@ -128,6 +155,12 @@ def build_parser() -> argparse.ArgumentParser:
         nargs="+",
         action="append",
         help="Filter execution by specific Test Case IDs (e.g. SEARCH-001, SEARCH-{001..003})"
+    )
+    parser.add_argument(
+        "--suite",
+        type=str,
+        help="Run all test cases under the named suite(s) (comma-separated, e.g. SEARCH). "
+             "Case-insensitive; maps to suites/<NAME>/. Composes with --tier / --test-case."
     )
     parser.add_argument(
         "test_targets",
@@ -214,8 +247,13 @@ def resolve_configurations(args, defaults: dict) -> dict:
     else:
         os.environ.pop(EnvKeys.TEST_CASE_FILTER, None)
 
-    # Add targeted tests / directories
-    pytest_args.extend(args.test_targets)
+    # Determine test targets: --suite selects whole suite directory(ies); otherwise
+    # use the positional paths (default: suites/).
+    if getattr(args, "suite", None):
+        test_targets = resolve_suite_targets(args.suite)
+    else:
+        test_targets = args.test_targets
+    pytest_args.extend(test_targets)
 
     return {
         "headless": final_headless,
@@ -233,8 +271,12 @@ def main():
     parser = build_parser()
     args = parser.parse_args()
     
-    config = resolve_configurations(args, defaults)
-    
+    try:
+        config = resolve_configurations(args, defaults)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(2)
+
     # Automatically create output directory if missing
     os.makedirs(os.path.abspath(config["report_dir"]), exist_ok=True)
     
