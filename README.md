@@ -202,6 +202,21 @@ uv run python run_tests.py suites/SEARCH/test_search.py::TestMomoSearch::test_ha
 uv run python run_tests.py -r ./debug_results
 ```
 
+### Viewing the HTML Report
+The report is written to `<report_dir>/pytest_html_report.html` (default `results/`).
+
+> ⚠️ **Open it over HTTP, not by double-clicking (`file://`).** pytest-html sorts on
+> load via `history.pushState`, which throws a `SecurityError` over `file://` when the
+> project path contains **non-ASCII characters** — leaving the results table empty.
+> Serve it instead:
+>
+> ```bash
+> uv run python -m http.server -d results 8000
+> # then open http://localhost:8000/pytest_html_report.html
+> ```
+>
+> (Or keep the checkout under an ASCII-only path, which avoids the issue entirely.)
+
 ---
 
 ## 📋 3. Test Case Specifications (Framework)
