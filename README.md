@@ -114,22 +114,20 @@ The `run_tests.py` wrapper accepts arguments to override the values inside `conf
   - `--no-trace`: Disables trace capture.
 
 ### CLI Examples
-> The examples below are written as `python run_tests.py ...` for brevity. Run them
-> through `uv` — i.e. `uv run python run_tests.py ...` — so the project's `.venv` is
-> used automatically (no manual activation needed).
+All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
 
 ```bash
 # Run with defaults from config.ini (Headless, INFO log level)
-python run_tests.py
+uv run python run_tests.py
 
 # Run in headed mode with verbose DEBUG logs (captures video/traces)
-python run_tests.py --headed -l DEBUG
+uv run python run_tests.py --headed -l DEBUG
 
 # Run in headless mode with ERROR level logs and output to custom_report.html
-python run_tests.py --headless -l ERROR -r custom_report.html
+uv run python run_tests.py --headless -l ERROR -r custom_report.html
 
 # Run tests and open the interactive Playwright Inspector GUI
-python run_tests.py --pwdebug
+uv run python run_tests.py --pwdebug
 ```
 
 ### Interactive Debugging (Playwright Inspector)
@@ -139,7 +137,7 @@ Playwright provides an interactive GUI debugging tool called the **Playwright In
 To pause execution at the very beginning of the test suite and step through all tests:
 ```bash
 # macOS/Linux
-PWDEBUG=1 python run_tests.py
+PWDEBUG=1 uv run python run_tests.py
 ```
 *When `PWDEBUG=1` is set: browser execution automatically switches to headed mode, timeouts are set to infinity, and the Playwright Inspector GUI opens alongside the browser window.*
 
@@ -154,7 +152,7 @@ To debug a specific step inside your test case or Page Object:
    ```
 2. Run tests in **headed** mode:
    ```bash
-   python run_tests.py --headed
+   uv run python run_tests.py --headed
    ```
 
 ### Test Classification & Filtering (`--tier` / `-t`)
@@ -166,13 +164,13 @@ The framework classifies tests into distinct execution tiers to optimize build v
 You can filter runs using the `--tier` (`-t`) argument (comma-separated list):
 ```bash
 # Run only RAT (smoke) tests
-python run_tests.py --tier RAT
+uv run python run_tests.py --tier RAT
 
 # Run both RAT and FAST tests together
-python run_tests.py -t RAT,FAST
+uv run python run_tests.py -t RAT,FAST
 
 # Run TOFT and FET tests
-python run_tests.py -t TOFT,FET
+uv run python run_tests.py -t TOFT,FET
 ```
 
 ### Test Case ID Filtering (`--test-case` / `-c`)
@@ -183,25 +181,25 @@ The framework structures test cases into logical **Test Suites** (e.g. `SEARCH`)
 
 ```bash
 # Run a single test case
-python run_tests.py --test-case SEARCH-001
+uv run python run_tests.py --test-case SEARCH-001
 # or short flag
-python run_tests.py -c SEARCH-001
+uv run python run_tests.py -c SEARCH-001
 
 # Run a range of test cases (e.g., SEARCH-001 to SEARCH-003)
-python run_tests.py -c "SEARCH-{001..003}"
+uv run python run_tests.py -c "SEARCH-{001..003}"
 
 # Run a custom comma-separated list of test cases
-python run_tests.py -c SEARCH-001,SEARCH-004
+uv run python run_tests.py -c SEARCH-001,SEARCH-004
 ```
 
 ### Custom Test Targeting & Reports
 You can target specific test files or specify a custom HTML report path:
 ```bash
 # Run only a specific test class/case
-python run_tests.py suites/SEARCH/test_search.py::TestMomoSearch::test_happy_path_search
+uv run python run_tests.py suites/SEARCH/test_search.py::TestMomoSearch::test_happy_path_search
 
 # Output report to a custom filename
-python run_tests.py -r debug_results.html
+uv run python run_tests.py -r debug_results.html
 ```
 
 ---
@@ -273,7 +271,7 @@ This is the easiest method and requires no local installation. The trace file is
 #### Method 2: Via Playwright CLI (Local)
 If you have the virtual environment activated, you can open traces directly from your terminal:
 ```bash
-playwright show-trace results/SEARCH/SEARCH-001/trace.zip
+uv run playwright show-trace results/SEARCH/SEARCH-001/trace.zip
 ```
 
 ### Core Features of the Trace Viewer
