@@ -124,7 +124,8 @@ def pytest_runtest_makereport(item, call):
 
     cfg = get_runtime_config()
     test_suite = test_case_id.split("-")[0]
-    extra = getattr(rep, "extra", [])
+    # pytest-html 4.x reads `report.extras` (plural); `report.extra` is deprecated/ignored.
+    extra = getattr(rep, "extras", [])
 
     # 1. Capture and embed screenshot on failure
     if rep.failed and "page" in item.funcargs:
@@ -155,4 +156,4 @@ def pytest_runtest_makereport(item, call):
     relative_log = f"{test_suite}/{test_case_id}/test.log"
     extra.append(extras.url(relative_log, name="Execution Log (.log)"))
 
-    rep.extra = extra
+    rep.extras = extra
