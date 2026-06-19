@@ -1,6 +1,9 @@
 import re
 
+from playwright.sync_api import expect, TimeoutError as PlaywrightTimeoutError
+
 from pages.base_page import BasePage
+from utils.retry import with_retry
 
 class SearchResultsPage(BasePage):
     # Selectors
@@ -11,7 +14,9 @@ class SearchResultsPage(BasePage):
     PRICE_MIN_INPUT = "input#priceS"
     PRICE_MAX_INPUT = "input#priceE"
     PRICE_FILTER_SUBMIT = "a.priceBtn"
-    NO_DATA_CONTAINER = ".nodata, div:has-text('找不到'), div:has-text('查無')"
+    # momo's empty-state message, e.g. 很抱歉，查無 "..." 的相關商品。Matched by text
+    # (not a wrapper-div :has-text) to avoid false positives elsewhere on the page.
+    NO_RESULTS_PATTERN = re.compile(r"查無.*相關商品")
 
     def get_search_header_text(self) -> str:
         """
@@ -52,20 +57,39 @@ class SearchResultsPage(BasePage):
         """
         Fills the min and max price inputs and submits the filter, reloading results.
         """
-        self.fill_input(self.PRICE_MIN_INPUT, str(min_price), name="min price")
-        self.fill_input(self.PRICE_MAX_INPUT, str(max_price), name="max price")
-        # Submitting reloads the results page; wait for that navigation so callers
-        # read the filtered list instead of the stale (already-loaded) page.
-        with self.page.expect_navigation(wait_until="load"):
+        def _apply():
+            self.fill_input(self.PRICE_MIN_INPUT, str(min_price), name="min price")
+            self.fill_input(self.PRICE_MAX_INPUT, str(max_price), name="max price")
+            # momo re-renders the filter sidebar; confirm the values actually stuck
+            # before submitting, else an empty filter is sent (no _advPriceS applied).
+            # A dropped value raises AssertionError, which triggers a retry (re-fill).
+            expect(self.page.locator(self.PRICE_MIN_INPUT)).to_have_value(str(min_price))
+            expect(self.page.locator(self.PRICE_MAX_INPUT)).to_have_value(str(max_price))
             self.click_element(self.PRICE_FILTER_SUBMIT, name="price filter submit")
+            # Wait until the URL actually reflects the applied price filter, so callers
+            # read the filtered list rather than the stale (already-loaded) unfiltered page.
+            self.page.wait_for_url(
+                re.compile(r"_advPriceS="), wait_until="load", timeout=self.NAVIGATION_TIMEOUT
+            )
+
+        with_retry(
+            "apply_price_range", _apply,
+            retry_on=(PlaywrightTimeoutError, AssertionError),
+            min=min_price, max=max_price,
+        )
 
     def is_no_results_visible(self) -> bool:
         """
-        Determines whether the page is displaying the 'No results found' UI.
+        Determines whether the page is displaying the 'No results found' UI by
+        matching momo's specific empty-state message (查無 ... 相關商品).
         """
-        locator = self.page.locator(self.NO_DATA_CONTAINER)
+        locator = self.page.get_by_text(self.NO_RESULTS_PATTERN)
         try:
             locator.first.wait_for(state="visible", timeout=5000)
             return True
         except Exception:
             return False
+
+    def get_product_count(self) -> int:
+        """Returns the number of product cards currently rendered on the page."""
+        return self.page.locator(self.PRODUCT_TITLES).count()
