@@ -1,0 +1,11 @@
+# Keeps uv.lock and requirements.txt in sync with pyproject.toml automatically.
+# Enable once per clone with: uv run pre-commit install
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.11.21
+    hooks:
+      # Re-lock when pyproject.toml changes.
+      - id: uv-lock
+      # Regenerate requirements.txt (runtime deps only, no hashes) from the lock.
+      - id: uv-export
+        args: ["--frozen", "--no-hashes", "--no-dev", "--output-file", "requirements.txt"]

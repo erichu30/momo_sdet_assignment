@@ -8,29 +8,57 @@ It incorporates the Page Object Model (POM) pattern, custom CLI options for Head
 
 ## 🚀 1. Environment & Setup
 
-This project uses **`uv`**, an extremely fast Python package installer and resolver written in Rust.
+This project is managed with **`uv`**, an extremely fast Python package and project
+manager written in Rust. Dependencies are declared in **`pyproject.toml`** and pinned
+in **`uv.lock`**; `uv` provisions the right Python version and the virtual environment
+for you, so the steps below are all you need.
 
 ### Prerequisites
-- Python 3.8 or above installed on macOS.
-- `uv` package manager installed (`brew install uv` or `curl -LsSf https://astral.sh/uv/install.sh | sh`).
+- `uv` installed:
+  ```bash
+  # macOS (Homebrew)
+  brew install uv
+  # or, any platform
+  curl -LsSf https://astral.sh/uv/install.sh | sh
+  ```
+  (You do **not** need to install Python yourself — `uv` will fetch the version pinned in `pyproject.toml`.)
 
 ### Installation Steps
-1. **Initialize a Virtual Environment**:
+1. **Install all dependencies** (creates `.venv` and installs the locked versions):
    ```bash
-   uv venv
+   uv sync
    ```
-2. **Activate the Virtual Environment**:
+2. **Install the Playwright browser** (Chromium):
    ```bash
-   source .venv/bin/activate
+   uv run playwright install chromium
    ```
-3. **Install Dependencies**:
+3. **(Recommended) Enable the git hooks** that keep `uv.lock` / `requirements.txt`
+   in sync with `pyproject.toml` automatically on every commit:
    ```bash
-   uv pip install -r requirements.txt
+   uv run pre-commit install
    ```
-4. **Install Playwright Browsers**:
-   ```bash
-   playwright install chromium
-   ```
+
+That's it — the environment is ready.
+
+### Running Everything
+All commands are run through `uv run` (no manual `source .venv/bin/activate` needed;
+`uv` uses the project's `.venv` automatically):
+
+```bash
+# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 18 passed
+uv run pytest test/
+
+# 2. The full E2E suite against the momo site (all SEARCH scenarios)
+uv run python run_tests.py
+
+# 3. A single smoke test (fast sanity check that the whole pipeline works)
+uv run python run_tests.py -c SEARCH-000
+```
+
+> **Dependency management:** add/remove packages with `uv add <pkg>` / `uv remove <pkg>`
+> (never edit `requirements.txt` by hand). `requirements.txt` is **auto-generated** from
+> `uv.lock` by the `pre-commit` hook (`uv export`) and is kept only as a fallback for
+> environments without `uv`.
 
 ---
 
@@ -47,23 +75,25 @@ The default configuration file at the project root includes annotations and is s
 headless = true
 
 # Set the test run logging level
-# Allowed values: DEBUG, INFO, WARN, ERROR (default: INFO)
+# Allowed values: DEBUG, INFO, WARNING, ERROR (default: INFO)
 # Note: Setting to DEBUG dynamically triggers:
 #  - Playwright action slow_mo (800ms action delay)
-#  - Video recording for all test cases under test-results/videos/
-#  - Playwright execution trace capturing for all test cases under test-results/traces/
+#  - Video recording for all test cases (linked in the HTML report)
 log_level = INFO
 
-# Output directory path for the HTML test report
-# Supports both relative and absolute paths (automatically resolved to absolute path)
-# Automatically creates the folder if missing and combines it with the filename in pytest.ini
+# Output directory for run assets (HTML report, per-case logs/traces/videos)
+# Supports relative or absolute paths (auto-resolved to absolute) and is created if missing.
 # Example: ./results
-report_path = ./results
+report_dir = ./results
 
 # Enable Playwright Inspector interactive debugging GUI
 # Allowed values: true, false (default: false)
 # Note: Setting to true pauses execution at the start of tests
 pwdebug = false
+
+# Capture a Playwright execution trace (.zip) for every test case
+# Allowed values: true, false (default: true)
+trace = true
 ```
 
 ### CLI Overrides
@@ -72,15 +102,22 @@ The `run_tests.py` wrapper accepts arguments to override the values inside `conf
   - `--headless`: Forces headless execution (runs in background).
   - `--headed`: Forces headed execution (opens a visible browser window).
 - **Log Level Override**:
-  - `--log-level <LEVEL>` (or `-l <LEVEL>`): Sets the log capturing and output level. Available levels are `DEBUG`, `INFO`, `WARN`, `ERROR`.
+  - `--log-level <LEVEL>` (or `-l <LEVEL>`): Sets the log capturing and output level. Available levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`.
   - *Note: Setting the log level to `DEBUG` automatically activates verbose logger outputs, slows down action execution by 800ms (`slow_mo`), and captures both execution traces and videos for all test runs.*
 - **Report Path Override**:
   - `--report <PATH>` (or `-r <PATH>`): Sets a custom destination path for the HTML report.
 - **Playwright Inspector (PWDEBUG) Override**:
   - `--pwdebug`: Enables Playwright Inspector GUI and pauses execution at start of tests (forces headed mode).
   - `--no-pwdebug`: Disables Playwright Inspector GUI.
+- **Trace Override**:
+  - `--trace`: Forces Playwright execution trace capture (`.zip`) for every test case.
+  - `--no-trace`: Disables trace capture.
 
 ### CLI Examples
+> The examples below are written as `python run_tests.py ...` for brevity. Run them
+> through `uv` — i.e. `uv run python run_tests.py ...` — so the project's `.venv` is
+> used automatically (no manual activation needed).
+
 ```bash
 # Run with defaults from config.ini (Headless, INFO log level)
 python run_tests.py
@@ -266,14 +303,14 @@ This framework has been architected to adhere to the core SDET dimensions valued
 
 To ensure high codebase maintainability and clean history:
 
-1. **Root Branch (`main` / `master`)**: Represents stable, production-ready releases. Only merged into before final submission.
-2. **Development Branch (`dev`)**: The integration branch. All feature branches must target and merge into `dev` first.
+1. **Release Branch (`master`)**: Represents stable, production-ready releases. It is **only** updated by merging from `dev` at CI/CD release time — never committed to directly.
+2. **Development Branch (`dev`)**: The integration branch and the **GitHub default branch**. All feature branches target and merge into `dev` first (via Pull Request).
 3. **Feature Branching (`feature/*`)**: Individual feature tasks are developed on standalone branches branched off `dev`.
    * *Example*: `feature/setup-framework` or `feature/implement-pom`
 4. **Commit Conventions**: All commit messages must be prefixed with semantic keywords:
    - `feat: ...` for new features or frameworks (e.g., `feat: implement page objects and selectors`)
    - `fix: ...` for bug fixes or locator correction (e.g., `fix: update autocomplete dropdown locator`)
-5. **Final Submission Flow**:
-   - Merge `feature/*` $\rightarrow$ `dev`
+5. **Flow**:
+   - Open a PR: `feature/*` $\rightarrow$ `dev`
    - Test and verify on `dev`
-   - Merge `dev` $\rightarrow$ `main` before submitting the repository link / zip file.
+   - At release, merge `dev` $\rightarrow$ `master`.
