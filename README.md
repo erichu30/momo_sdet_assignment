@@ -104,8 +104,8 @@ The `run_tests.py` wrapper accepts arguments to override the values inside `conf
 - **Log Level Override**:
   - `--log-level <LEVEL>` (or `-l <LEVEL>`): Sets the log capturing and output level. Available levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`.
   - *Note: Setting the log level to `DEBUG` automatically activates verbose logger outputs, slows down action execution by 800ms (`slow_mo`), and captures both execution traces and videos for all test runs.*
-- **Report Path Override**:
-  - `--report <PATH>` (or `-r <PATH>`): Sets a custom destination path for the HTML report.
+- **Report Directory Override**:
+  - `--report <DIR>` (or `-r <DIR>`): Sets a custom output **directory** for the HTML report and per-case assets. The report *filename* itself comes from `pytest.ini`, so pass a directory, not a file.
 - **Playwright Inspector (PWDEBUG) Override**:
   - `--pwdebug`: Enables Playwright Inspector GUI and pauses execution at start of tests (forces headed mode).
   - `--no-pwdebug`: Disables Playwright Inspector GUI.
@@ -123,8 +123,8 @@ uv run python run_tests.py
 # Run in headed mode with verbose DEBUG logs (captures video/traces)
 uv run python run_tests.py --headed -l DEBUG
 
-# Run in headless mode with ERROR level logs and output to custom_report.html
-uv run python run_tests.py --headless -l ERROR -r custom_report.html
+# Run in headless mode with ERROR level logs, writing the report + assets under ./custom_results/
+uv run python run_tests.py --headless -l ERROR -r ./custom_results
 
 # Run tests and open the interactive Playwright Inspector GUI
 uv run python run_tests.py --pwdebug
@@ -193,13 +193,13 @@ uv run python run_tests.py -c SEARCH-001,SEARCH-004
 ```
 
 ### Custom Test Targeting & Reports
-You can target specific test files or specify a custom HTML report path:
+You can target specific test files or specify a custom report output directory:
 ```bash
 # Run only a specific test class/case
 uv run python run_tests.py suites/SEARCH/test_search.py::TestMomoSearch::test_happy_path_search
 
-# Output report to a custom filename
-uv run python run_tests.py -r debug_results.html
+# Output report + assets to a custom directory
+uv run python run_tests.py -r ./debug_results
 ```
 
 ---
