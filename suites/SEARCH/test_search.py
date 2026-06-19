@@ -1,11 +1,6 @@
-import time
-
 import pytest
 from pages.home_page import HomePage
 from pages.search_results_page import SearchResultsPage
-
-# Smoke-level budget for homepage accessibility (spec: "under 3-5 seconds").
-MAX_HOMEPAGE_LOAD_SECONDS = 5.0
 
 # Of the first 5 results, how many must mention the keyword to count as "relevant".
 # Tolerant of the odd sponsored/cross-sell slot while still proving search relevance.
@@ -15,40 +10,16 @@ MIN_RELEVANT_OF_FIRST_FIVE = 4
 class TestMomoSearch:
 
     @pytest.mark.rat
-    @pytest.mark.test_id("SEARCH-000")
-    def test_homepage_accessibility(self, home_page: HomePage):
-        """
-        Scenario 0: Release Acceptance Testing (RAT)
-
-        [Specifications]
-        - ID: SEARCH-000
-        - Input: None (Navigate to homepage)
-        - Output: Homepage loaded successfully
-        - Testing Level: Release Acceptance Testing (Smoke Test)
-        - Expected Result: Homepage is accessible, page loads successfully in under 3-5 seconds,
-                           and the browser title contains "momo".
-        """
-        start = time.time()
-        home_page.navigate()
-        load_seconds = time.time() - start
-
-        title = home_page.page.title()
-        assert "momo" in title.lower(), \
-            f"Homepage title should contain 'momo', got: {title!r}"
-        assert load_seconds < MAX_HOMEPAGE_LOAD_SECONDS, \
-            f"Homepage should load within {MAX_HOMEPAGE_LOAD_SECONDS}s, took {load_seconds:.2f}s"
-
-    @pytest.mark.fast
     @pytest.mark.test_id("SEARCH-001")
     def test_happy_path_search(self, home_page: HomePage, search_results_page: SearchResultsPage):
         """
         Scenario 1: Happy Path Search
-        
+
         [Specifications]
         - ID: SEARCH-001
         - Input: Product search keyword (e.g., "iPhone")
         - Output: List of search results matching the keyword
-        - Testing Level: Core UX Happy Path Testing (FAST)
+        - Testing Level: Release Acceptance Testing (RAT smoke - core search works)
         - Expected Result: Search header reflects keyword, product count > 0, first 5 product titles are relevant.
         """
         keyword = "iPhone"

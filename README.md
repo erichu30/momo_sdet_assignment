@@ -134,7 +134,7 @@ To debug a specific step inside your test case or Page Object:
 
 ### Test Classification & Filtering (`--tier` / `-t`)
 The framework classifies tests into distinct execution tiers to optimize build validation speed:
-- **RAT (Release Acceptance Testing)**: Smoke test verifying if the environment/site is accessible (takes ~2 seconds).
+- **RAT (Release Acceptance Testing)**: Smoke test verifying that core search works (basic keyword search returns results).
 - **FAST (Core Happy Paths)**: Essential happy path validations protecting core user experience flows.
 - **TOFT & FET (Functional Toleration & Edge Testing)**: Comprehensive coverage including filtering, sorting, autocomplete and negative edge paths.
 
@@ -202,8 +202,7 @@ The test cases are located in [test_search.py](file:///Users/huchiawei/Downloads
 
 | Scenario | Test ID | Method Name | Testing Level (Tier) | Inputs & Outputs | Expected Results |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Scenario 0**: Release Acceptance Testing (RAT) | `SEARCH-000` | `test_homepage_accessibility` | RAT (Smoke Test) | **Input**: None<br>**Output**: Loaded homepage | <ul><li>Homepage navigation returns success status.</li><li>Page is accessible and loads in under 3-5 seconds.</li><li>Browser title contains `"momo"`.</li></ul> |
-| **Scenario 1**: Happy Path Search | `SEARCH-001` | `test_happy_path_search` | FAST (Core Happy Path) | **Input**: Valid keyword (e.g. `"iPhone"`)<br>**Output**: Search results page | <ul><li>H1 header text contains the searched keyword.</li><li>Product list contains at least one product.</li><li>At least 4 of the first 5 product titles are relevant to the keyword.</li></ul> |
+| **Scenario 1**: Happy Path Search | `SEARCH-001` | `test_happy_path_search` | RAT (Smoke Test) | **Input**: Valid keyword (e.g. `"iPhone"`)<br>**Output**: Search results page | <ul><li>H1 header text contains the searched keyword.</li><li>Product list contains at least one product.</li><li>At least 4 of the first 5 product titles are relevant to the keyword.</li></ul> |
 | **Scenario 2**: Advanced Price Range Filtering | `SEARCH-002` | `test_advanced_price_range_filtering` | TOFT (Functionality & Toleration) | **Input**: Keyword (`"咖啡機"`), Price bounds (`[2000, 5000]`)<br>**Output**: Filtered product grid | <ul><li>Filter successfully submitted.</li><li>Every extracted product price falls within range `[2000, 5000]`.</li></ul> |
 | **Scenario 3**: Autocomplete Suggestions | `SEARCH-003` | `test_search_autocomplete_suggestions` | FAST (Core Happy Path) | **Input**: Partial keyword (e.g. `"iPhone"`)<br>**Output**: Autocomplete suggestion dropdown | <ul><li>Suggestions dropdown visible on focus/input.</li><li>Dropdown list is populated (count > 0).</li><li>Clicking suggestion redirects and loads results matching the selected keyword.</li></ul> |
 | **Scenario 4**: Negative Path - No Search Results | `SEARCH-004` | `test_negative_no_results` | FET (Functional Edge Test) | **Input**: Gibberish keyword (e.g. `"xyz999abc_not_exist"`)<br>**Output**: Empty state view | <ul><li>Page displays a "No results found" placeholder or "查無商品" indicator.</li><li>Product list count is `0`.</li></ul> |
