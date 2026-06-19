@@ -67,51 +67,28 @@ uv run python run_tests.py -c SEARCH-000
 The framework relies on a global configuration file **`config.ini`** for default execution settings. You can override these defaults directly from the CLI.
 
 ### Global Configuration (`config.ini`)
-The default configuration file at the project root includes annotations and is structured as:
-```ini
-[momo_automation]
-# Run tests in headless mode (true) or headed mode (false)
-# Allowed values: true, false (default: true)
-headless = true
+The default settings inside `config.ini` control the framework's baseline behavior:
 
-# Set the test run logging level
-# Allowed values: DEBUG, INFO, WARNING, ERROR (default: INFO)
-# Note: Setting to DEBUG dynamically triggers:
-#  - Playwright action slow_mo (800ms action delay)
-#  - Video recording for all test cases (linked in the HTML report)
-log_level = INFO
-
-# Output directory for run assets (HTML report, per-case logs/traces/videos)
-# Supports relative or absolute paths (auto-resolved to absolute) and is created if missing.
-# Example: ./results
-report_dir = ./results
-
-# Enable Playwright Inspector interactive debugging GUI
-# Allowed values: true, false (default: false)
-# Note: Setting to true pauses execution at the start of tests
-pwdebug = false
-
-# Capture a Playwright execution trace (.zip) for every test case
-# Allowed values: true, false (default: true)
-trace = true
-```
+| Parameter | Default Value | Allowed Values | Description / Behavior |
+| :--- | :--- | :--- | :--- |
+| `headless` | `true` | `true`, `false` | Run tests in headless (background) or headed (visible browser) mode. |
+| `log_level` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` | Logging verbosity. Setting to `DEBUG` triggers verbose outputs, 800ms action delay (`slow_mo`), and automatic video capture for all test cases. |
+| `report_dir` | `./results` | Path string (relative/absolute) | Output directory for execution assets (HTML report, per-case logs/traces/videos). Path is auto-created if missing. |
+| `pwdebug` | `false` | `true`, `false` | Enable Playwright Inspector interactive debugging GUI. Setting to `true` pauses execution at the start of tests (forces headed mode). |
+| `trace` | `true` | `true`, `false` | Capture a Playwright execution trace (`.zip`) for every test case. |
 
 ### CLI Overrides
-The `run_tests.py` wrapper accepts arguments to override the values inside `config.ini` dynamically:
-- **Browser Mode Override**:
-  - `--headless`: Forces headless execution (runs in background).
-  - `--headed`: Forces headed execution (opens a visible browser window).
-- **Log Level Override**:
-  - `--log-level <LEVEL>` (or `-l <LEVEL>`): Sets the log capturing and output level. Available levels are `DEBUG`, `INFO`, `WARNING`, `ERROR`.
-  - *Note: Setting the log level to `DEBUG` automatically activates verbose logger outputs, slows down action execution by 800ms (`slow_mo`), and captures both execution traces and videos for all test runs.*
-- **Report Directory Override**:
-  - `--report <DIR>` (or `-r <DIR>`): Sets a custom output **directory** for the HTML report and per-case assets. The report *filename* itself comes from `pytest.ini`, so pass a directory, not a file.
-- **Playwright Inspector (PWDEBUG) Override**:
-  - `--pwdebug`: Enables Playwright Inspector GUI and pauses execution at start of tests (forces headed mode).
-  - `--no-pwdebug`: Disables Playwright Inspector GUI.
-- **Trace Override**:
-  - `--trace`: Forces Playwright execution trace capture (`.zip`) for every test case.
-  - `--no-trace`: Disables trace capture.
+The `run_tests.py` wrapper accepts arguments to override the values inside `config.ini` dynamically, filter tests by level or ID, and control debugging outputs:
+
+| CLI Options | Type / Format | Default (from `config.ini`) | Description / Override Behavior |
+| :--- | :--- | :--- | :--- |
+| `--headless`<br>`--headed` | Flag | `headless = true` | Overrides the browser mode. `--headless` runs in background; `--headed` opens a visible browser window. |
+| `--log-level <LEVEL>`<br>`-l <LEVEL>` | Choice: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `log_level = INFO` | Overrides logging level. `DEBUG` automatically activates verbose logger, slows execution by 800ms, and captures traces + videos. |
+| `--report <DIR>`<br>`-r <DIR>` | Path | `report_dir = ./results` | Overrides the output directory for reports and assets. (Report filename is configured in `pytest.ini`). |
+| `--pwdebug`<br>`--no-pwdebug` | Flag | `pwdebug = false` | `--pwdebug` enables Playwright Inspector GUI and pauses execution at start (forces headed mode). `--no-pwdebug` disables it. |
+| `--trace`<br>`--no-trace` | Flag | `trace = true` | `--trace` forces trace capture (`.zip`) for every test case; `--no-trace` disables trace capture. |
+| `--tier <TIERS>`<br>`-t <TIERS>` | Comma-separated list | None | Filter tests by tier markers: `RAT` (smoke/acceptance), `FAST` (happy path), `TOFT` (functionality), or `FET` (edge/negative paths). |
+| `--test-case <IDS>`<br>`-c <IDS>` | Range / Comma-separated list | None | Filter tests by ID, e.g. `SEARCH-001`, a range `SEARCH-{001..003}`, or custom list `SEARCH-001,SEARCH-004`. |
 
 ### CLI Examples
 All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
@@ -221,50 +198,15 @@ The report is written to `<report_dir>/pytest_html_report.html` (default `result
 
 ## 📋 3. Test Case Specifications (Framework)
 
-The test cases are located in `suites/SEARCH/test_search.py`. Below are their specifications:
+The test cases are located in [test_search.py](file:///Users/huchiawei/Downloads/面試/momo/Sr_Web_Testing_Assignment/suites/SEARCH/test_search.py). Below are their specifications:
 
-### Scenario 0: Release Acceptance Testing (RAT) (`test_homepage_accessibility`)
-* **Testing Level**: Release Acceptance Testing (Smoke Test)
-* **Input**: None (Navigate to homepage)
-* **Output**: Successfully loaded homepage
-* **Expected Result**:
-  - Homepage navigation returns a success status.
-  - Page is accessible and completes loading in under 3-5 seconds.
-  - Page browser title contains the keyword `"momo"`.
-
-### Scenario 1: Happy Path Search (`test_happy_path_search`)
-* **Testing Level**: System Integration / E2E UI Functional Test
-* **Input**: Valid product keyword string (e.g., `"iPhone"`)
-* **Output**: Search results page listing products relevant to the keyword
-* **Expected Result**:
-  - Page header (H1) text contains the searched keyword.
-  - Product list displays at least one product.
-  - The first few product titles are relevant to the input search term.
-
-### Scenario 2: Advanced Price Range Filtering (`test_advanced_price_range_filtering`)
-* **Testing Level**: System Integration / E2E UI Functional Test
-* **Input**: Category keyword (`"咖啡機"`) and numeric price bounds (Min: `2000`, Max: `5000`)
-* **Output**: Re-rendered product grid displaying filtered results
-* **Expected Result**:
-  - Filter is successfully submitted.
-  - Every product price extracted from the page falls within the range `[2000, 5000]`.
-
-### Scenario 3: Autocomplete Suggestions (`test_search_autocomplete_suggestions`)
-* **Testing Level**: E2E UI User Experience / Integration Test
-* **Input**: Partial keyword text (`"iPhone"`) entered into the search box
-* **Output**: Dropdown modal containing recommendation keywords
-* **Expected Result**:
-  - Autocomplete suggestion box becomes visible on input focus/type.
-  - Dropdown suggestion list is populated (count > 0).
-  - Clicking a suggestion redirects the browser and successfully loads the results page matching the chosen keyword.
-
-### Scenario 4: Negative Path - No Search Results (`test_negative_no_results`)
-* **Testing Level**: E2E UI Negative / Boundary Test
-* **Input**: Non-existent, gibberish keyword (e.g., `"xyz999abc_not_exist"`)
-* **Output**: Results page displaying empty state view
-* **Expected Result**:
-  - Page displays a "No results found" placeholder or "查無商品" indicator.
-  - Product item list count is `0`.
+| Scenario | Test ID | Method Name | Testing Level (Tier) | Inputs & Outputs | Expected Results |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Scenario 0**: Release Acceptance Testing (RAT) | `SEARCH-000` | `test_homepage_accessibility` | RAT (Smoke Test) | **Input**: None<br>**Output**: Loaded homepage | <ul><li>Homepage navigation returns success status.</li><li>Page is accessible and loads in under 3-5 seconds.</li><li>Browser title contains `"momo"`.</li></ul> |
+| **Scenario 1**: Happy Path Search | `SEARCH-001` | `test_happy_path_search` | FAST (Core Happy Path) | **Input**: Valid keyword (e.g. `"iPhone"`)<br>**Output**: Search results page | <ul><li>H1 header text contains the searched keyword.</li><li>Product list contains at least one product.</li><li>At least 4 of the first 5 product titles are relevant to the keyword.</li></ul> |
+| **Scenario 2**: Advanced Price Range Filtering | `SEARCH-002` | `test_advanced_price_range_filtering` | TOFT (Functionality & Toleration) | **Input**: Keyword (`"咖啡機"`), Price bounds (`[2000, 5000]`)<br>**Output**: Filtered product grid | <ul><li>Filter successfully submitted.</li><li>Every extracted product price falls within range `[2000, 5000]`.</li></ul> |
+| **Scenario 3**: Autocomplete Suggestions | `SEARCH-003` | `test_search_autocomplete_suggestions` | FAST (Core Happy Path) | **Input**: Partial keyword (e.g. `"iPhone"`)<br>**Output**: Autocomplete suggestion dropdown | <ul><li>Suggestions dropdown visible on focus/input.</li><li>Dropdown list is populated (count > 0).</li><li>Clicking suggestion redirects and loads results matching the selected keyword.</li></ul> |
+| **Scenario 4**: Negative Path - No Search Results | `SEARCH-004` | `test_negative_no_results` | FET (Functional Edge Test) | **Input**: Gibberish keyword (e.g. `"xyz999abc_not_exist"`)<br>**Output**: Empty state view | <ul><li>Page displays a "No results found" placeholder or "查無商品" indicator.</li><li>Product list count is `0`.</li></ul> |
 
 ---
 
