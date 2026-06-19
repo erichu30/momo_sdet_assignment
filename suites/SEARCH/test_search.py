@@ -80,8 +80,17 @@ class TestMomoSearch:
         - Testing Level: Testing Of Functionality and Toleration (TOFT)
         - Expected Result: Every product displayed on the results page has a price within [2000, 5000].
         """
-        # TODO: Implement Scenario 2
-        pass
+        keyword = "咖啡機"
+        min_price, max_price = 2000, 5000
+        home_page.navigate()
+        home_page.search_for(keyword)
+        search_results_page.apply_price_range(min_price, max_price)
+
+        prices = search_results_page.get_product_prices()
+        assert len(prices) > 0, "Filtered search should return at least one product"
+        out_of_range = [p for p in prices if not (min_price <= p <= max_price)]
+        assert not out_of_range, \
+            f"All prices must be within [{min_price}, {max_price}], out-of-range: {out_of_range}"
 
     @pytest.mark.fast
     @pytest.mark.test_id("SEARCH-003")
