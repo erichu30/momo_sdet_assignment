@@ -52,7 +52,7 @@ uv run pytest test/
 uv run python run_tests.py
 
 # 3. A single smoke test (fast sanity check that the whole pipeline works)
-uv run python run_tests.py -c SEARCH-000
+uv run python run_tests.py -c SEARCH-001
 ```
 
 > **Dependency management:** add/remove packages with `uv add <pkg>` / `uv remove <pkg>`
