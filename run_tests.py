@@ -6,6 +6,8 @@ import re
 import sys
 import pytest
 
+from utils.env_keys import EnvKeys
+
 CONFIG_FILE = "config.ini"
 PYTEST_INI = "pytest.ini"
 
@@ -171,19 +173,19 @@ def resolve_configurations(args, defaults: dict) -> dict:
         final_trace = False
 
     # Export configuration to environment variables for conftest.py
-    os.environ["MOMO_HEADLESS"] = "true" if final_headless else "false"
-    os.environ["MOMO_LOG_LEVEL"] = final_log_level
-    os.environ["MOMO_REPORT_DIR"] = abs_report_dir
-    os.environ["MOMO_ENABLE_TRACE"] = "true" if final_trace else "false"
-    
+    os.environ[EnvKeys.HEADLESS] = "true" if final_headless else "false"
+    os.environ[EnvKeys.LOG_LEVEL] = final_log_level
+    os.environ[EnvKeys.REPORT_DIR] = abs_report_dir
+    os.environ[EnvKeys.ENABLE_TRACE] = "true" if final_trace else "false"
+
     if final_pwdebug:
-        os.environ["PWDEBUG"] = "1"
+        os.environ[EnvKeys.PWDEBUG] = "1"
         # Playwright Inspector requires headed browser mode to display
-        os.environ["MOMO_HEADLESS"] = "false"
+        os.environ[EnvKeys.HEADLESS] = "false"
         final_headless = False
     else:
         # Clear PWDEBUG if explicitly disabled
-        os.environ.pop("PWDEBUG", None)
+        os.environ.pop(EnvKeys.PWDEBUG, None)
 
     # Base pytest arguments (overriding pytest.ini's local html path dynamically)
     pytest_args = [
@@ -208,9 +210,9 @@ def resolve_configurations(args, defaults: dict) -> dict:
                 flattened_tcs.extend(item)
             else:
                 flattened_tcs.append(item)
-        os.environ["TEST_CASE_FILTER"] = ",".join(flattened_tcs)
+        os.environ[EnvKeys.TEST_CASE_FILTER] = ",".join(flattened_tcs)
     else:
-        os.environ.pop("TEST_CASE_FILTER", None)
+        os.environ.pop(EnvKeys.TEST_CASE_FILTER, None)
 
     # Add targeted tests / directories
     pytest_args.extend(args.test_targets)

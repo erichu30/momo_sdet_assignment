@@ -1,5 +1,5 @@
 import pytest
-from suites.conftest import parse_test_cases
+from utils.test_case_parser import parse_test_cases
 
 def test_parse_single_test_case():
     """Test parsing of single case ID, including automatic zero-padding."""
