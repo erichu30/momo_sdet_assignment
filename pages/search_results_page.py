@@ -63,5 +63,9 @@ class SearchResultsPage(BasePage):
         """
         Determines whether the page is displaying the 'No results found' UI.
         """
-        # TODO: Implement negative path assertion
-        return False
+        locator = self.page.locator(self.NO_DATA_CONTAINER)
+        try:
+            locator.first.wait_for(state="visible", timeout=5000)
+            return True
+        except Exception:
+            return False

@@ -144,5 +144,14 @@ class TestMomoSearch:
         - Testing Level: Functional Edge Testing (FET)
         - Expected Result: System displays 'No results found' message, product list has 0 items.
         """
-        # TODO: Implement Scenario 4
-        pass
+        gibberish = "xyz999abc_not_exist"
+        home_page.navigate()
+        home_page.search_for(gibberish)
+        
+        # Verify empty state elements or message is visible
+        assert search_results_page.is_no_results_visible(), \
+            "Expected 'No results found' placeholder or indicator to be visible"
+        
+        # Verify product count is 0
+        product_count = search_results_page.page.locator(search_results_page.PRODUCT_TITLES).count()
+        assert product_count == 0, f"Expected 0 product items, but found {product_count}"
