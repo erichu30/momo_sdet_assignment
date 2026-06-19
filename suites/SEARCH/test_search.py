@@ -106,8 +106,30 @@ class TestMomoSearch:
         - Expected Result: Suggestions dropdown becomes visible, suggestion list is not empty, 
                            clicking a suggestion redirects to results page containing the selected keyword.
         """
-        # TODO: Implement Scenario 3
-        pass
+        keyword = "iPhone"
+        home_page.navigate()
+        
+        # 1. Type partial keyword to trigger suggestions
+        home_page.type_keyword_for_suggestions(keyword)
+        
+        # 2. Verify suggestions dropdown container is visible
+        suggestion_locator = home_page.page.locator(home_page.SUGGESTION_CONTAINER)
+        suggestion_locator.wait_for(state="visible", timeout=5000)
+        assert suggestion_locator.is_visible(), "Suggestions dropdown container should be visible after typing keyword"
+        
+        # 3. Retrieve suggestion texts and assert list is populated (count > 0)
+        suggestions = home_page.get_suggestions()
+        assert len(suggestions) > 0, f"Expected suggestions dropdown to have options, got 0"
+        
+        # 4. Click the first suggestion item
+        selected_suggestion = suggestions[0]
+        home_page.click_suggestion_by_index(0)
+        
+        # 5. Verify redirection and successful results load for the selected suggestion
+        search_results_page.page.wait_for_load_state("load")
+        header_text = search_results_page.get_search_header_text()
+        assert selected_suggestion.lower() in header_text.lower(), \
+            f"Expected search header to match suggestion '{selected_suggestion}', got: '{header_text}'"
 
     @pytest.mark.fet
     @pytest.mark.test_id("SEARCH-004")

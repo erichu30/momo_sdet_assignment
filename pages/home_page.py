@@ -29,19 +29,25 @@ class HomePage(BasePage):
         """
         Inputs partial keyword to trigger the autocomplete suggestion box.
         """
-        # TODO: Implement autocomplete trigger
-        pass
+        locator = self.page.locator(self.SEARCH_INPUT)
+        locator.wait_for(state="visible", timeout=10000)
+        locator.click()
+        locator.clear()
+        locator.press_sequentially(keyword, delay=100)
 
     def get_suggestions(self) -> list[str]:
         """
         Retrieves the visible autocomplete suggestions from the dropdown list.
         """
-        # TODO: Implement suggestions text retrieval
-        return []
+        locator = self.page.locator(self.SUGGESTION_ITEMS)
+        # Wait for at least the first item to become visible before querying
+        locator.first.wait_for(state="visible", timeout=5000)
+        return [text.strip() for text in locator.all_inner_texts() if text.strip()]
 
     def click_suggestion_by_index(self, index: int):
         """
         Clicks suggestion item at the specified index.
         """
-        # TODO: Implement suggestion click action
-        pass
+        locator = self.page.locator(self.SUGGESTION_ITEMS).nth(index)
+        locator.wait_for(state="visible", timeout=5000)
+        locator.click()
