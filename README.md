@@ -78,35 +78,74 @@ The default settings inside `config.ini` control the framework's baseline behavi
 | `trace` | `true` | `true`, `false` | Capture a Playwright execution trace (`.zip`) for every test case. |
 
 ### CLI Overrides
-The `run_tests.py` wrapper accepts arguments to override the values inside `config.ini` dynamically, filter tests by level or ID, and control debugging outputs:
+`run_tests.py` overrides the `config.ini` defaults and adds test-selection / resilience
+controls. Options are grouped below and all compose with each other.
 
-| CLI Options | Type / Format | Default (from `config.ini`) | Description / Override Behavior |
-| :--- | :--- | :--- | :--- |
-| `--headless`<br>`--headed` | Flag | `headless = true` | Overrides the browser mode. `--headless` runs in background; `--headed` opens a visible browser window. |
-| `--log-level <LEVEL>`<br>`-l <LEVEL>` | Choice: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `log_level = INFO` | Overrides logging level. `DEBUG` automatically activates verbose logger, slows execution by 800ms, and captures traces + videos. |
-| `--report <DIR>`<br>`-r <DIR>` | Path | `report_dir = ./results` | Overrides the output directory for reports and assets. (Report filename is configured in `pytest.ini`). |
-| `--pwdebug`<br>`--no-pwdebug` | Flag | `pwdebug = false` | `--pwdebug` enables Playwright Inspector GUI and pauses execution at start (forces headed mode). `--no-pwdebug` disables it. |
-| `--trace`<br>`--no-trace` | Flag | `trace = true` | `--trace` forces trace capture (`.zip`) for every test case; `--no-trace` disables trace capture. |
-| `--tier <TIERS>`<br>`-t <TIERS>` | Comma-separated list | None | Filter tests by tier markers: `RAT` (smoke/acceptance), `FAST` (happy path), `TOFT` (functionality), or `FET` (edge/negative paths). |
-| `--test-case <IDS>`<br>`-c <IDS>` | Range / Comma-separated list | None | Filter tests by ID, e.g. `SEARCH-001`, a range `SEARCH-{001..003}`, or custom list `SEARCH-001,SEARCH-004`. |
-| `--suite <NAMES>` | Comma-separated list | None | Run all test cases under the named suite(s), e.g. `SEARCH` -> `suites/SEARCH/`. Case-insensitive. Composes with `--tier` / `--test-case` (which filter within the selected suite). Errors and lists available suites if a name is unknown. |
-| `--reruns <N>` | Integer | `0` (off) | Rerun each **failing** test up to `N` times (any failure, incl. `AssertionError`). Opt-in safety net for transient/throttle flakes. Rerun-rescued cases are flagged in the HTML report so flakiness stays visible (never silently masked). |
-| `--reruns-delay <SECONDS>` | Integer | `5` | Seconds to wait before each rerun, so a momo rate-limit window can pass. Only applies when `--reruns > 0`. |
+**Browser & interactive debugging**
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--headless` / `--headed` | `headless = true` | Run the browser in the background vs. a visible window. |
+| `--pwdebug` / `--no-pwdebug` | `pwdebug = false` | Open the Playwright Inspector and pause at start (forces headed mode). |
+
+**Logging, reports & traces**
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--log-level <LEVEL>` / `-l` | `INFO` | One of `DEBUG` / `INFO` / `WARNING` / `ERROR`. `DEBUG` also enables 800ms slow-mo and video/trace capture. |
+| `--report <DIR>` / `-r` | `./results` | Output directory for the HTML report and per-case assets (filename set in `pytest.ini`). |
+| `--trace` / `--no-trace` | `trace = true` | Capture a Playwright trace (`.zip`) for every test case. |
+
+**Test selection** *(filters the run; compose freely)*
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--suite <NAMES>` | None | Run whole suite(s) by name, e.g. `SEARCH` → `suites/SEARCH/` (case-insensitive, comma-separated). Unknown names error and list what's available. |
+| `--tier <TIERS>` / `-t` | None | Filter by tier marker: `RAT`, `FAST`, `TOFT`, `FET` (comma-separated). |
+| `--test-case <IDS>` / `-c` | None | Filter by ID: single `SEARCH-001`, range `SEARCH-{001..003}`, or list `SEARCH-001,SEARCH-004`. |
+
+**Resilience**
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--reruns <N>` | `0` (off) | Rerun each failing test up to `N` times (any failure, incl. `AssertionError`). Rerun-rescued cases are flagged in the report — see [Whole-test Reruns](#whole-test-reruns---reruns-opt-in). |
+| `--reruns-delay <SECONDS>` | `5` | Wait this many seconds before each rerun (lets a rate-limit window pass). Applies only with `--reruns > 0`. |
 
 ### CLI Examples
-All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
+All commands run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
+
+**For reviewers — running the SEARCH suite:**
 
 ```bash
-# Run with defaults from config.ini (Headless, INFO log level)
-uv run python run_tests.py
+# Run the whole SEARCH suite (all 5 scenarios) — the default starting point
+uv run python run_tests.py --suite SEARCH
 
-# Run in headed mode with verbose DEBUG logs (captures video/traces)
-uv run python run_tests.py --headed -l DEBUG
+# Quick sanity: just the RAT smoke (verifies core search works)
+uv run python run_tests.py --suite SEARCH --tier RAT
 
-# Run in headless mode with ERROR level logs, writing the report + assets under ./custom_results/
-uv run python run_tests.py --headless -l ERROR -r ./custom_results
+# Watch it run: headed browser with 800ms slow-mo + video/trace capture
+uv run python run_tests.py --suite SEARCH --headed -l DEBUG
 
-# Run tests and open the interactive Playwright Inspector GUI
+# A single scenario, e.g. price-range filtering (SEARCH-002)
+uv run python run_tests.py -c SEARCH-002
+
+# A range of scenarios (SEARCH-001 through SEARCH-003)
+uv run python run_tests.py -c "SEARCH-{001..003}"
+
+# Resilient run against the live (rate-limiting) site:
+# rerun any failing case up to twice; rerun-rescued cases are flagged in the report
+uv run python run_tests.py --suite SEARCH --reruns 2
+```
+
+The HTML report lands at `results/pytest_html_report.html` — see [Viewing the HTML Report](#viewing-the-html-report).
+
+**Other handy overrides:**
+
+```bash
+# ERROR-level logs, report + assets under ./review_results/
+uv run python run_tests.py --suite SEARCH --headless -l ERROR -r ./review_results
+
+# Step through the run in the interactive Playwright Inspector GUI
 uv run python run_tests.py --pwdebug
 ```
 
