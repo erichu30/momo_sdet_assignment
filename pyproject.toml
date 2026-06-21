@@ -1,0 +1,22 @@
+[project]
+name = "momo-sdet-assignment"
+version = "0.1.0"
+description = "momo web automation testing framework (Python + Pytest + Playwright)"
+requires-python = ">=3.10"
+dependencies = [
+    "pytest>=8.0.0",
+    "pytest-playwright>=0.5.0",
+    "pytest-html>=4.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+# This is a test/application project, not a distributable package, so uv manages
+# the environment without trying to build/install the project itself.
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = [
+    "pre-commit>=3.0.0",
+    "pytest-rerunfailures>=16.3",
+]
