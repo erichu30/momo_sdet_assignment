@@ -45,7 +45,7 @@ All commands are run through `uv run` (no manual `source .venv/bin/activate` nee
 `uv` uses the project's `.venv` automatically):
 
 ```bash
-# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 35 passed
+# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 37 passed
 uv run pytest test/
 
 # 2. The full E2E suite against the momo site (all SEARCH scenarios)
@@ -275,6 +275,7 @@ grep -h "\[PERF\]" results/SEARCH/*/test.log
 ### Retry with Backoff (throttling resilience)
 momo rate-limits repeated automated traffic, which can intermittently time out navigation/search/filter actions. These operations are wrapped with a shared retry-with-backoff helper (`utils/retry.py`):
 - Retries on Playwright `TimeoutError` (and, for the price filter, a dropped-input `AssertionError`) using exponential backoff.
+- **Exception-aware backoff:** throttle-class errors (Playwright `TimeoutError`) back off from a longer base (`throttle_delay`, default 5s → 5s, 10s, …) because momo's rate-limit window lasts seconds; structural retryable errors (e.g. a dropped-input `AssertionError`) use the shorter base (`base_delay`, default 1s) since they clear on an immediate re-try. Throttle retries are tagged `kind=throttle` in the `[RETRY]` log.
 - Each retry logs a `[RETRY]` warning; the operation's `[PERF]` line then carries `retries=N`.
 - **Observe degradation:** `retries=0` is healthy; `retries>0` means the op only succeeded after retrying (slower). Grep for it:
 ```bash
