@@ -1,0 +1,49 @@
+name: Release
+
+# Cut a release from the Actions tab: "Run workflow" -> enter a version (e.g. v1.1.0).
+# It gates on the deterministic framework self-tests, then tags master and publishes
+# a GitHub Release with auto-generated notes.
+#
+# Note: this releases whatever is currently on `master`, so merge the dev -> master
+# release PR first. The "Run workflow" button only appears once this file is on the
+# repository's default branch.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to release from master (e.g. v1.1.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write # required to create the tag and the GitHub Release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Sync dependencies
+        run: uv sync
+
+      # Gate the release on the fast, deterministic framework self-tests only.
+      # The live SEARCH E2E hits a third-party, rate-limiting site (momo) and is
+      # intentionally NOT a release gate — it would be flaky in CI.
+      - name: Framework self-tests
+        run: uv run pytest test/ -q
+
+      - name: Tag and publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.version }}
+          target_commitish: master
+          generate_release_notes: true
