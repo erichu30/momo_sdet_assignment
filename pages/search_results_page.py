@@ -81,22 +81,36 @@ class SearchResultsPage(BasePage):
         to a few times until the tab shows the target direction, waiting for the grid
         to reload between clicks so the next read sees the re-sorted list.
         """
+        target_type = self.SEARCH_TYPE_ASC if ascending else self.SEARCH_TYPE_DESC
         target_token = "up" if ascending else "down"
 
         def _sort():
             tab = self.page.locator(self.SORT_PRICE_TAB, has_text="價格")
-            for _ in range(3):
-                if target_token in (tab.get_attribute("class") or ""):
-                    return
+            # momo's default results URL is searchType=1 (綜合), and clicking 價格 toggles
+            # 綜合 -> desc(3) -> asc(2) -> desc(3) ..., so ascending needs 2 clicks. We drive
+            # by the URL's searchType and, after each click, wait for the URL to *actually
+            # change* (not a stale match left by a previous click) before deciding to toggle
+            # again. The loop budget is generous (not exactly 2) so a momentarily mis-timed
+            # navigation can't run the tight ascending path out of iterations.
+            for _ in range(6):
+                if re.search(rf"searchType={target_type}(?!\d)", self.page.url):
+                    break
+                url_before = self.page.url
                 tab.click()
-                # Each click navigates (searchType=2|3); wait for the reload so the
-                # tab's class and the product grid reflect the new sort before re-check.
+                tab = self.page.locator(self.SORT_PRICE_TAB, has_text="價格")
                 self.page.wait_for_url(
-                    re.compile(r"searchType=[23]"),
+                    lambda u, _b=url_before: u != _b and "searchType=" in u,
                     wait_until="load", timeout=self.NAVIGATION_TIMEOUT,
                 )
-            raise AssertionError(
-                f"Price sort never reached '{target_token}' direction (ascending={ascending})"
+            else:
+                raise AssertionError(
+                    f"Price sort never reached searchType={target_type} (ascending={ascending})"
+                )
+            # Web-first: block until the tab's class settles on the target direction token,
+            # so callers read the re-sorted grid rather than a stale, mid-reload render.
+            # (Replaces a one-shot get_attribute() read that raced the reload.)
+            expect(self.page.locator(self.SORT_PRICE_TAB, has_text="價格")).to_have_class(
+                re.compile(rf"\b{target_token}\b"), timeout=10000
             )
 
         with_retry(
