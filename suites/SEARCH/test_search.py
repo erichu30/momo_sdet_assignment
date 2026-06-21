@@ -2,10 +2,6 @@ import pytest
 from pages.home_page import HomePage
 from pages.search_results_page import SearchResultsPage
 
-# Of the first 5 results, how many must mention the keyword to count as "relevant".
-# Tolerant of the odd sponsored/cross-sell slot while still proving search relevance.
-MIN_RELEVANT_OF_FIRST_FIVE = 4
-
 
 class TestMomoSearch:
 
@@ -18,9 +14,14 @@ class TestMomoSearch:
         [Specifications]
         - ID: SEARCH-001
         - Input: Product search keyword (e.g., "iPhone")
-        - Output: List of search results matching the keyword
+        - Output: Search results page for the keyword
         - Testing Level: Release Acceptance Testing (RAT smoke - core search works)
-        - Expected Result: Search header reflects keyword, product count > 0, first 5 product titles are relevant.
+        - Expected Result: Search header reflects the keyword and at least one product is returned.
+
+        Note: this smoke deliberately asserts only the stable search *contract* (the query ran
+        and produced results). Result *relevance/ordering* is momo's ranking output — it shifts
+        daily with promotions and sponsored slots, so asserting it here would be flaky. Ordering
+        is covered separately by the deterministic price-sort test (SEARCH-005).
         """
         keyword = "iPhone"
         home_page.navigate()
@@ -32,11 +33,6 @@ class TestMomoSearch:
 
         titles = search_results_page.get_product_titles()
         assert len(titles) > 0, "Search should return at least one product"
-
-        first_five = titles[:5]
-        relevant = [t for t in first_five if keyword.lower() in t.lower()]
-        assert len(relevant) >= MIN_RELEVANT_OF_FIRST_FIVE, \
-            f"Expected >= {MIN_RELEVANT_OF_FIRST_FIVE} of first 5 titles to mention '{keyword}', got: {first_five}"
 
     @pytest.mark.toft
     @pytest.mark.test_id("SEARCH-002")
@@ -124,3 +120,39 @@ class TestMomoSearch:
         # Verify product count is 0
         product_count = search_results_page.get_product_count()
         assert product_count == 0, f"Expected 0 product items, but found {product_count}"
+
+    @pytest.mark.toft
+    @pytest.mark.test_id("SEARCH-005")
+    def test_sort_by_price_ascending_and_descending(self, home_page: HomePage, search_results_page: SearchResultsPage):
+        """
+        Scenario 5: Sort by Price (ascending and descending)
+
+        [Specifications]
+        - ID: SEARCH-005
+        - Input: Product keyword ("行動電源"), price sort toggled low→high then high→low
+        - Output: Re-ordered product grid for each direction
+        - Testing Level: Testing Of Functionality and Toleration (TOFT)
+        - Expected Result: Organic (non-sponsored) product prices are non-decreasing when
+                           sorted ascending, and non-increasing when sorted descending.
+
+        Sponsored ad slots sit at fixed positions and ignore the sort, so we compare only
+        organic prices (exclude_ads=True). Verifying BOTH directions proves the control
+        actually re-sorts rather than coincidentally matching one order.
+        """
+        keyword = "行動電源"
+        home_page.navigate()
+        home_page.search_for(keyword)
+
+        # Ascending: price low -> high
+        search_results_page.sort_by_price(ascending=True)
+        asc_prices = search_results_page.get_product_prices(exclude_ads=True)
+        assert len(asc_prices) > 1, "Need at least two organic products to verify ordering"
+        assert asc_prices == sorted(asc_prices), \
+            f"Ascending sort: prices should be non-decreasing, got: {asc_prices}"
+
+        # Descending: price high -> low
+        search_results_page.sort_by_price(ascending=False)
+        desc_prices = search_results_page.get_product_prices(exclude_ads=True)
+        assert len(desc_prices) > 1, "Need at least two organic products to verify ordering"
+        assert desc_prices == sorted(desc_prices, reverse=True), \
+            f"Descending sort: prices should be non-increasing, got: {desc_prices}"

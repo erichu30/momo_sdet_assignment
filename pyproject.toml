@@ -18,4 +18,5 @@ package = false
 [dependency-groups]
 dev = [
     "pre-commit>=3.0.0",
+    "pytest-rerunfailures>=16.3",
 ]

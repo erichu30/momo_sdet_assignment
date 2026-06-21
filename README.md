@@ -45,7 +45,7 @@ All commands are run through `uv run` (no manual `source .venv/bin/activate` nee
 `uv` uses the project's `.venv` automatically):
 
 ```bash
-# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 18 passed
+# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 40 passed
 uv run pytest test/
 
 # 2. The full E2E suite against the momo site (all SEARCH scenarios)
@@ -78,33 +78,74 @@ The default settings inside `config.ini` control the framework's baseline behavi
 | `trace` | `true` | `true`, `false` | Capture a Playwright execution trace (`.zip`) for every test case. |
 
 ### CLI Overrides
-The `run_tests.py` wrapper accepts arguments to override the values inside `config.ini` dynamically, filter tests by level or ID, and control debugging outputs:
+`run_tests.py` overrides the `config.ini` defaults and adds test-selection / resilience
+controls. Options are grouped below and all compose with each other.
 
-| CLI Options | Type / Format | Default (from `config.ini`) | Description / Override Behavior |
-| :--- | :--- | :--- | :--- |
-| `--headless`<br>`--headed` | Flag | `headless = true` | Overrides the browser mode. `--headless` runs in background; `--headed` opens a visible browser window. |
-| `--log-level <LEVEL>`<br>`-l <LEVEL>` | Choice: `DEBUG`, `INFO`, `WARNING`, `ERROR` | `log_level = INFO` | Overrides logging level. `DEBUG` automatically activates verbose logger, slows execution by 800ms, and captures traces + videos. |
-| `--report <DIR>`<br>`-r <DIR>` | Path | `report_dir = ./results` | Overrides the output directory for reports and assets. (Report filename is configured in `pytest.ini`). |
-| `--pwdebug`<br>`--no-pwdebug` | Flag | `pwdebug = false` | `--pwdebug` enables Playwright Inspector GUI and pauses execution at start (forces headed mode). `--no-pwdebug` disables it. |
-| `--trace`<br>`--no-trace` | Flag | `trace = true` | `--trace` forces trace capture (`.zip`) for every test case; `--no-trace` disables trace capture. |
-| `--tier <TIERS>`<br>`-t <TIERS>` | Comma-separated list | None | Filter tests by tier markers: `RAT` (smoke/acceptance), `FAST` (happy path), `TOFT` (functionality), or `FET` (edge/negative paths). |
-| `--test-case <IDS>`<br>`-c <IDS>` | Range / Comma-separated list | None | Filter tests by ID, e.g. `SEARCH-001`, a range `SEARCH-{001..003}`, or custom list `SEARCH-001,SEARCH-004`. |
-| `--suite <NAMES>` | Comma-separated list | None | Run all test cases under the named suite(s), e.g. `SEARCH` -> `suites/SEARCH/`. Case-insensitive. Composes with `--tier` / `--test-case` (which filter within the selected suite). Errors and lists available suites if a name is unknown. |
+**Browser & interactive debugging**
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--headless` / `--headed` | `headless = true` | Run the browser in the background vs. a visible window. |
+| `--pwdebug` / `--no-pwdebug` | `pwdebug = false` | Open the Playwright Inspector and pause at start (forces headed mode). |
+
+**Logging, reports & traces**
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--log-level <LEVEL>` / `-l` | `INFO` | One of `DEBUG` / `INFO` / `WARNING` / `ERROR`. `DEBUG` also enables 800ms slow-mo and video/trace capture. |
+| `--report <DIR>` / `-r` | `./results` | Output directory for the HTML report and per-case assets (filename set in `pytest.ini`). |
+| `--trace` / `--no-trace` | `trace = true` | Capture a Playwright trace (`.zip`) for every test case. |
+
+**Test selection** *(filters the run; compose freely)*
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--suite <NAMES>` | None | Run whole suite(s) by name, e.g. `SEARCH` → `suites/SEARCH/` (case-insensitive, comma-separated). Unknown names error and list what's available. |
+| `--tier <TIERS>` / `-t` | None | Filter by tier marker: `RAT`, `FAST`, `TOFT`, `FET` (comma-separated). |
+| `--test-case <IDS>` / `-c` | None | Filter by ID: single `SEARCH-001`, range `SEARCH-{001..003}`, or list `SEARCH-001,SEARCH-004`. |
+
+**Resilience**
+
+| Option | Default | Behavior |
+| :--- | :--- | :--- |
+| `--reruns <N>` | `0` (off) | Rerun each failing test up to `N` times (any failure, incl. `AssertionError`). Rerun-rescued cases are flagged in the report — see [Whole-test Reruns](#whole-test-reruns---reruns-opt-in). |
+| `--reruns-delay <SECONDS>` | `5` | Wait this many seconds before each rerun (lets a rate-limit window pass). Applies only with `--reruns > 0`. |
 
 ### CLI Examples
-All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
+All commands run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
+
+**For reviewers — running the SEARCH suite:**
 
 ```bash
-# Run with defaults from config.ini (Headless, INFO log level)
-uv run python run_tests.py
+# Run the whole SEARCH suite (all 5 scenarios) — the default starting point
+uv run python run_tests.py --suite SEARCH
 
-# Run in headed mode with verbose DEBUG logs (captures video/traces)
-uv run python run_tests.py --headed -l DEBUG
+# Quick sanity: just the RAT smoke (verifies core search works)
+uv run python run_tests.py --suite SEARCH --tier RAT
 
-# Run in headless mode with ERROR level logs, writing the report + assets under ./custom_results/
-uv run python run_tests.py --headless -l ERROR -r ./custom_results
+# Watch it run: headed browser with 800ms slow-mo + video/trace capture
+uv run python run_tests.py --suite SEARCH --headed -l DEBUG
 
-# Run tests and open the interactive Playwright Inspector GUI
+# A single scenario, e.g. price-range filtering (SEARCH-002)
+uv run python run_tests.py -c SEARCH-002
+
+# A range of scenarios (SEARCH-001 through SEARCH-003)
+uv run python run_tests.py -c "SEARCH-{001..003}"
+
+# Resilient run against the live (rate-limiting) site:
+# rerun any failing case up to twice; rerun-rescued cases are flagged in the report
+uv run python run_tests.py --suite SEARCH --reruns 2
+```
+
+The HTML report lands at `results/pytest_html_report.html` — see [Viewing the HTML Report](#viewing-the-html-report).
+
+**Other handy overrides:**
+
+```bash
+# ERROR-level logs, report + assets under ./review_results/
+uv run python run_tests.py --suite SEARCH --headless -l ERROR -r ./review_results
+
+# Step through the run in the interactive Playwright Inspector GUI
 uv run python run_tests.py --pwdebug
 ```
 
@@ -216,10 +257,11 @@ The test cases are located in [test_search.py](file:///Users/huchiawei/Downloads
 
 | Scenario | Test ID | Method Name | Testing Level (Tier) | Inputs & Outputs | Expected Results |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Scenario 1**: Happy Path Search | `SEARCH-001` | `test_happy_path_search` | RAT (Smoke Test) | **Input**: Valid keyword (e.g. `"iPhone"`)<br>**Output**: Search results page | <ul><li>H1 header text contains the searched keyword.</li><li>Product list contains at least one product.</li><li>At least 4 of the first 5 product titles are relevant to the keyword.</li></ul> |
+| **Scenario 1**: Happy Path Search | `SEARCH-001` | `test_happy_path_search` | RAT (Smoke Test) | **Input**: Valid keyword (e.g. `"iPhone"`)<br>**Output**: Search results page | <ul><li>H1 header text contains the searched keyword.</li><li>Product list contains at least one product.</li></ul><br>*Asserts only the stable search contract; relevance/ordering is momo's ranking output (shifts daily with promos/sponsored slots) and is covered deterministically by SEARCH-005.* |
 | **Scenario 2**: Advanced Price Range Filtering | `SEARCH-002` | `test_advanced_price_range_filtering` | TOFT (Functionality & Toleration) | **Input**: Keyword (`"咖啡機"`), Price bounds (`[2000, 5000]`)<br>**Output**: Filtered product grid | <ul><li>Filter successfully submitted.</li><li>Every extracted product price falls within range `[2000, 5000]`.</li></ul> |
 | **Scenario 3**: Autocomplete Suggestions | `SEARCH-003` | `test_search_autocomplete_suggestions` | FAST (Core Happy Path) | **Input**: Partial keyword (e.g. `"iPhone"`)<br>**Output**: Autocomplete suggestion dropdown | <ul><li>Suggestions dropdown visible on focus/input.</li><li>Dropdown list is populated (count > 0).</li><li>Clicking suggestion redirects and loads results matching the selected keyword.</li></ul> |
 | **Scenario 4**: Negative Path - No Search Results | `SEARCH-004` | `test_negative_no_results` | FET (Functional Edge Test) | **Input**: Gibberish keyword (e.g. `"xyz999abc_not_exist"`)<br>**Output**: Empty state view | <ul><li>Page displays a "No results found" placeholder or "查無商品" indicator.</li><li>Product list count is `0`.</li></ul> |
+| **Scenario 5**: Sort by Price (asc & desc) | `SEARCH-005` | `test_sort_by_price_ascending_and_descending` | TOFT (Functionality & Toleration) | **Input**: Keyword (`"行動電源"`), price sort toggled low→high then high→low<br>**Output**: Re-ordered product grid | <ul><li>Organic (non-sponsored) prices are non-decreasing when sorted ascending.</li><li>Organic prices are non-increasing when sorted descending.</li></ul><br>*Sponsored ad slots sit at fixed positions and ignore sorting, so they are excluded; both directions are checked to prove the control actually re-sorts.* |
 
 ---
 
@@ -274,11 +316,26 @@ grep -h "\[PERF\]" results/SEARCH/*/test.log
 ### Retry with Backoff (throttling resilience)
 momo rate-limits repeated automated traffic, which can intermittently time out navigation/search/filter actions. These operations are wrapped with a shared retry-with-backoff helper (`utils/retry.py`):
 - Retries on Playwright `TimeoutError` (and, for the price filter, a dropped-input `AssertionError`) using exponential backoff.
+- **Exception-aware backoff:** throttle-class errors (Playwright `TimeoutError`) back off from a longer base (`throttle_delay`, default 5s → 5s, 10s, …) because momo's rate-limit window lasts seconds; structural retryable errors (e.g. a dropped-input `AssertionError`) use the shorter base (`base_delay`, default 1s) since they clear on an immediate re-try. Throttle retries are tagged `kind=throttle` in the `[RETRY]` log.
 - Each retry logs a `[RETRY]` warning; the operation's `[PERF]` line then carries `retries=N`.
 - **Observe degradation:** `retries=0` is healthy; `retries>0` means the op only succeeded after retrying (slower). Grep for it:
 ```bash
 grep -hE "\[RETRY\]|retries=[1-9]" results/SEARCH/*/test.log
 ```
+
+### Whole-test Reruns (`--reruns`, opt-in)
+`with_retry` absorbs blips *within* an operation, but a hard rate-limit window can outlast its bounded retries and fail the whole test (the kind of failure a single isolated re-run later would pass). `--reruns N` adds a coarser, outer safety net: rerun a **failing test** up to `N` times (after `--reruns-delay` seconds so the throttle window can pass). It is **off by default** (`--reruns 0`).
+
+```bash
+# Rerun any failing case up to twice, waiting 5s between attempts
+uv run python run_tests.py --reruns 2
+```
+
+This is a deliberate trade-off, with two guardrails so it stays honest:
+- **Reruns are not scoped to one exception type.** Some transient issues here surface as `AssertionError` (e.g. a dropped filter input, the price-sort settle), so restricting to `TimeoutError` would miss them. The cost: a genuinely flaky/broken case can go green on a rerun.
+- **Rerun-rescued cases are flagged, so flakiness is never hidden.** pytest-html renders each failed attempt as a first-class `Rerun` row (with its failure detail) plus the final `Passed` row, and the summary carries a `N rerun` count. On top of that, the reporting hook labels the passing row itself — **"Passed after N rerun(s)"** — and logs a `[WARNING]`. A pass that needed a rerun is therefore always visible for review, not a silent green.
+
+Two layers, plus the suite is built to keep most failures real: operation blips → `with_retry`; a whole test knocked out by noise → `--reruns`.
 
 ---
 

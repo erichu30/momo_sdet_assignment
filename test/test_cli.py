@@ -113,10 +113,41 @@ class TestCLIAndOverrides(unittest.TestCase):
     def test_cli_test_case_filtering_env(self):
         """Test CLI --test-case / -c sets correct TEST_CASE_FILTER environment variable."""
         parser = build_parser()
-        
+
         # Test case filtering: single or multiple (args.test_case is accumulated as nested list)
         args = parser.parse_args(["-c", "SEARCH-001", "-c", "SEARCH-{002..003}"])
         resolved = resolve_configurations(args, self.default_configs)
-        
+
         self.assertIn("TEST_CASE_FILTER", os.environ)
         self.assertEqual(os.environ["TEST_CASE_FILTER"], "SEARCH-001,SEARCH-{002..003}")
+
+    def test_cli_reruns_default_off(self):
+        """By default (--reruns 0) no rerun flags are passed to pytest."""
+        parser = build_parser()
+        args = parser.parse_args([])
+        self.assertEqual(args.reruns, 0)
+        resolved = resolve_configurations(args, self.default_configs)
+        self.assertEqual(resolved["reruns"], 0)
+        self.assertNotIn("--reruns", resolved["pytest_args"])
+
+    def test_cli_reruns_wires_flags_with_default_delay(self):
+        """--reruns N passes --reruns N and the default --reruns-delay (any failure: no --only-rerun)."""
+        parser = build_parser()
+        args = parser.parse_args(["--reruns", "2"])
+        resolved = resolve_configurations(args, self.default_configs)
+        pytest_args = resolved["pytest_args"]
+
+        self.assertIn("--reruns", pytest_args)
+        self.assertEqual(pytest_args[pytest_args.index("--reruns") + 1], "2")
+        self.assertIn("--reruns-delay", pytest_args)
+        self.assertEqual(pytest_args[pytest_args.index("--reruns-delay") + 1], "5")
+        # Reruns are intentionally NOT scoped to a single exception type.
+        self.assertNotIn("--only-rerun", pytest_args)
+
+    def test_cli_reruns_delay_override(self):
+        """--reruns-delay overrides the default delay only when reruns are active."""
+        parser = build_parser()
+        args = parser.parse_args(["--reruns", "3", "--reruns-delay", "12"])
+        resolved = resolve_configurations(args, self.default_configs)
+        pytest_args = resolved["pytest_args"]
+        self.assertEqual(pytest_args[pytest_args.index("--reruns-delay") + 1], "12")

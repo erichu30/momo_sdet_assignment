@@ -158,4 +158,20 @@ def pytest_runtest_makereport(item, call):
     relative_log = f"{test_suite}/{test_case_id}/test.log"
     extra.append(extras.url(relative_log, name="Execution Log (.log)"))
 
+    # 4. Flag rerun-rescued cases (only when --reruns is active). pytest-rerunfailures
+    # increments item.execution_count per attempt; a passing case with count > 1 only
+    # went green on a rerun. Surface that on the Passed row itself so flakiness is not
+    # hidden behind a clean pass (the native 'Rerun' rows show the failed attempts).
+    execution_count = getattr(item, "execution_count", 1)
+    if rep.passed and execution_count > 1:
+        reruns = execution_count - 1
+        extra.append(extras.html(
+            f"<div style='color:#b8860b;font-weight:bold'>"
+            f"Passed after {reruns} rerun(s) — recovered from a transient/flaky failure; "
+            f"review the Rerun entries above.</div>"
+        ))
+        logger.warning(
+            f"[{test_case_id}] Passed after {reruns} rerun(s) — flaky/transient recovery."
+        )
+
     rep.extras = extra

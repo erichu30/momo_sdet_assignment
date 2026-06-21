@@ -60,3 +60,35 @@ class TestWithRetry(unittest.TestCase):
         with self.assertRaises(ValueError):
             with_retry("demo", action, retries=2, retry_on=(TimeoutError,))
         self.assertEqual(len(calls), 1)
+
+    @patch("utils.retry.time.sleep", return_value=None)
+    def test_throttle_class_errors_use_longer_backoff(self, sleep):
+        # Treat ValueError as the throttle class so we can prove the longer-backoff
+        # path without depending on Playwright's TimeoutError in a unit test.
+        def action():
+            raise ValueError("throttled")
+
+        with self.assertRaises(ValueError):
+            with_retry(
+                "demo", action, retries=2,
+                base_delay=1.0, throttle_delay=5.0,
+                retry_on=(ValueError,), throttle_on=(ValueError,),
+            )
+        # Two retries before giving up: throttle backoff = 5, 10 (not 1, 2).
+        delays = [call.args[0] for call in sleep.call_args_list]
+        self.assertEqual(delays, [5.0, 10.0])
+
+    @patch("utils.retry.time.sleep", return_value=None)
+    def test_non_throttle_errors_use_base_backoff(self, sleep):
+        # A retryable-but-not-throttle error keeps the short backoff (e.g. dropped input).
+        def action():
+            raise ValueError("structural")
+
+        with self.assertRaises(ValueError):
+            with_retry(
+                "demo", action, retries=2,
+                base_delay=1.0, throttle_delay=5.0,
+                retry_on=(ValueError,), throttle_on=(KeyError,),
+            )
+        delays = [call.args[0] for call in sleep.call_args_list]
+        self.assertEqual(delays, [1.0, 2.0])
