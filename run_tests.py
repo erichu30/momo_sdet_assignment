@@ -163,6 +163,20 @@ def build_parser() -> argparse.ArgumentParser:
              "Case-insensitive; maps to suites/<NAME>/. Composes with --tier / --test-case."
     )
     parser.add_argument(
+        "--reruns",
+        type=int,
+        default=0,
+        help="Rerun each FAILING test up to N times (any failure). Default 0 (off). "
+             "Rerun-rescued cases are flagged in the HTML report so flakiness stays visible."
+    )
+    parser.add_argument(
+        "--reruns-delay",
+        type=int,
+        default=5,
+        help="Seconds to wait before each rerun (lets a rate-limit window pass). Default 5. "
+             "Only applies when --reruns > 0."
+    )
+    parser.add_argument(
         "test_targets",
         nargs="*",
         default=["suites/"],
@@ -235,6 +249,18 @@ def resolve_configurations(args, defaults: dict) -> dict:
             marker_expr = " or ".join(tiers)
             pytest_args.extend(["-m", marker_expr])
 
+    # Handle whole-test reruns (--reruns): rerun ANY failing test up to N times. We
+    # deliberately do NOT pass --only-rerun, so transient failures that surface as
+    # AssertionError (e.g. a dropped filter input, or a momentary throttle) are retried
+    # too. The reporting hook flags any rerun-rescued case in the HTML report, so a
+    # genuinely flaky/broken test that only passes on a rerun stays visible.
+    reruns = getattr(args, "reruns", 0) or 0
+    if reruns > 0:
+        pytest_args.extend([
+            "--reruns", str(reruns),
+            "--reruns-delay", str(args.reruns_delay),
+        ])
+
     # Handle specific Test Case ID filtering (--test-case)
     if args.test_case:
         flattened_tcs = []
@@ -263,6 +289,8 @@ def resolve_configurations(args, defaults: dict) -> dict:
         "report_filename": report_filename,
         "pwdebug": final_pwdebug,
         "trace": final_trace,
+        "reruns": reruns,
+        "reruns_delay": args.reruns_delay,
         "pytest_args": pytest_args
     }
 
@@ -287,6 +315,10 @@ def main():
     print(f"  Report Path: {config['report_path']} (resolved from report_dir='{config['report_dir']}' & pytest.ini filename='{config['report_filename']}')")
     print(f"  Playwright Inspector (PWDEBUG): {config['pwdebug']} (CLI override)" if (args.pwdebug or args.no_pwdebug) else f"  Playwright Inspector (PWDEBUG): {config['pwdebug']} (default from config.ini)")
     print(f"  Playwright Trace: {config['trace']} (CLI override)" if (args.trace or args.no_trace) else f"  Playwright Trace: {config['trace']} (default from config.ini)")
+    if config["reruns"] > 0:
+        print(f"  Reruns: {config['reruns']} on any failure, {config['reruns_delay']}s delay (rerun-rescued cases flagged in report)")
+    else:
+        print(f"  Reruns: disabled (--reruns 0)")
     print(f"  Command parameters: {config['pytest_args']}\n")
 
     # Run pytest programmatically

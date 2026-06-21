@@ -45,7 +45,7 @@ All commands are run through `uv run` (no manual `source .venv/bin/activate` nee
 `uv` uses the project's `.venv` automatically):
 
 ```bash
-# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 37 passed
+# 1. Framework self-tests (unit/integration tests for the framework itself) — should be 40 passed
 uv run pytest test/
 
 # 2. The full E2E suite against the momo site (all SEARCH scenarios)
@@ -90,6 +90,8 @@ The `run_tests.py` wrapper accepts arguments to override the values inside `conf
 | `--tier <TIERS>`<br>`-t <TIERS>` | Comma-separated list | None | Filter tests by tier markers: `RAT` (smoke/acceptance), `FAST` (happy path), `TOFT` (functionality), or `FET` (edge/negative paths). |
 | `--test-case <IDS>`<br>`-c <IDS>` | Range / Comma-separated list | None | Filter tests by ID, e.g. `SEARCH-001`, a range `SEARCH-{001..003}`, or custom list `SEARCH-001,SEARCH-004`. |
 | `--suite <NAMES>` | Comma-separated list | None | Run all test cases under the named suite(s), e.g. `SEARCH` -> `suites/SEARCH/`. Case-insensitive. Composes with `--tier` / `--test-case` (which filter within the selected suite). Errors and lists available suites if a name is unknown. |
+| `--reruns <N>` | Integer | `0` (off) | Rerun each **failing** test up to `N` times (any failure, incl. `AssertionError`). Opt-in safety net for transient/throttle flakes. Rerun-rescued cases are flagged in the HTML report so flakiness stays visible (never silently masked). |
+| `--reruns-delay <SECONDS>` | Integer | `5` | Seconds to wait before each rerun, so a momo rate-limit window can pass. Only applies when `--reruns > 0`. |
 
 ### CLI Examples
 All commands are run through `uv run` (the project's `.venv` is used automatically — no manual activation needed).
@@ -281,6 +283,20 @@ momo rate-limits repeated automated traffic, which can intermittently time out n
 ```bash
 grep -hE "\[RETRY\]|retries=[1-9]" results/SEARCH/*/test.log
 ```
+
+### Whole-test Reruns (`--reruns`, opt-in)
+`with_retry` absorbs blips *within* an operation, but a hard rate-limit window can outlast its bounded retries and fail the whole test (the kind of failure a single isolated re-run later would pass). `--reruns N` adds a coarser, outer safety net: rerun a **failing test** up to `N` times (after `--reruns-delay` seconds so the throttle window can pass). It is **off by default** (`--reruns 0`).
+
+```bash
+# Rerun any failing case up to twice, waiting 5s between attempts
+uv run python run_tests.py --reruns 2
+```
+
+This is a deliberate trade-off, with two guardrails so it stays honest:
+- **Reruns are not scoped to one exception type.** Some transient issues here surface as `AssertionError` (e.g. a dropped filter input, the price-sort settle), so restricting to `TimeoutError` would miss them. The cost: a genuinely flaky/broken case can go green on a rerun.
+- **Rerun-rescued cases are flagged, so flakiness is never hidden.** pytest-html renders each failed attempt as a first-class `Rerun` row (with its failure detail) plus the final `Passed` row, and the summary carries a `N rerun` count. On top of that, the reporting hook labels the passing row itself — **"Passed after N rerun(s)"** — and logs a `[WARNING]`. A pass that needed a rerun is therefore always visible for review, not a silent green.
+
+Two layers, plus the suite is built to keep most failures real: operation blips → `with_retry`; a whole test knocked out by noise → `--reruns`.
 
 ---
 
