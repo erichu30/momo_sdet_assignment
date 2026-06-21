@@ -1,0 +1,30 @@
+name: Back-merge master to dev
+
+# After a release lands on master (the dev -> master release PR is merged), merge
+# master back into dev so dev always stays a superset of master and the two branches
+# never diverge. Runs automatically on every push to master.
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: write # required to push the back-merge to dev
+
+jobs:
+  backmerge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          fetch-depth: 0
+
+      - name: Merge master into dev
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin master
+          # No-op if master is already an ancestor of dev (nothing to back-merge).
+          git merge --no-ff origin/master \
+            -m "Merge branch 'master' into dev (auto back-merge after release)"
+          git push origin dev
